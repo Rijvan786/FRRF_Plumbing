@@ -6,11 +6,10 @@ import TechnicianProfileModel from "../models/Technicianprofile.model.js";
 import { getIo } from "../socket/server.socket.js";
 
 export async function CreateOrderController(req, res) {
-  try {
+  try {  
     const {
       serviceId,
       issueDescription,
-      amount,
       currency,
       label,
       street,
@@ -20,8 +19,9 @@ export async function CreateOrderController(req, res) {
       latitude,
       scheduleDate,
     } = req.body;
+  
     console.log("CreateOrder incoming location:", longitude, latitude);
-
+  
     const service_Data = await ServiceModel.findById(serviceId);
     if (!service_Data || !service_Data.isActive) {
       return res.status(404).json({
@@ -29,10 +29,7 @@ export async function CreateOrderController(req, res) {
       });
     }
 
-    let total_Amount;
-    if (amount && currency) {
-      total_Amount = service_Data.price.amount + amount;
-    }
+   
 
     const Images = req.files
       ? await Promise.all(
@@ -84,8 +81,8 @@ export async function CreateOrderController(req, res) {
       issueDescription: issueDescription,
       issueImageUrl: Images,
       scheduleDate: scheduleDate || new Date(),
-      total_Amount: {
-        amount: total_Amount || service_Data.price.amount,
+      total_Amount:{
+        amount:  service_Data.price.amount ,
         currency: service_Data.price.currency || currency,
       },
       address: {
@@ -120,8 +117,8 @@ export async function CreateOrderController(req, res) {
       message: service_Data.serviceName || "New Job Nearby!",
       serviceType: service_Data.serviceName || issueDescription || "Emergency Plumbing Repair",
       distance: "Within 25 Km Zone",
-      estimatedPrice: `₹${total_Amount || service_Data.price?.amount || 500}`,
-      amount: total_Amount || service_Data.price?.amount || 500,
+      estimatedPrice: `₹${ service_Data.price?.amount || 500}`,
+      amount:  service_Data.price?.amount || 500,
       time: "Just now",
       urgent: true,
       unread: true,

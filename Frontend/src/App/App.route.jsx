@@ -26,6 +26,18 @@ export const router = createBrowserRouter([
     path: "/",
     element: <Navigate to="/customer" replace />,
   },
+        {
+        path: "/resend-mail",
+        element: <Resendmail />,
+      },
+      {
+        path: "/forget-mail",
+        element: <Forgetmail />,
+      },
+      {
+        path: "/forget-password",
+        element: <ForgetPassword />,
+      },
   {
     path: "/customer",
     children: [
@@ -53,18 +65,7 @@ export const router = createBrowserRouter([
         path: "/customer/booking",
         element: <Booking />,
       },
-      {
-        path: "/resend-mail",
-        element: <Resendmail />,
-      },
-      {
-        path: "/forget-mail",
-        element: <Forgetmail />,
-      },
-      {
-        path: "/forget-password",
-        element: <ForgetPassword />,
-      },
+
       {
         path: "/customer/service/:serviceId",
         element: <View />,

@@ -353,17 +353,16 @@ export default function Booking() {
       formData.append('scheduleDate', scheduledDate);
 
       // Append amount & currency from real active service
-      const serviceAmount =
-      console.log(activeService);
+       
+       console.log(activeService);
+       const serviceAmount =
         typeof activeService.price === 'object' && activeService.price !== null
           ? activeService.price.amount
-          : activeService.price || 200;
+          : activeService.price.amount || 200;
       const serviceCurrency =
         typeof activeService.price === 'object' && activeService.price !== null
           ? activeService.price.currency || 'INR'
           : 'INR';
-
-      formData.append('amount', String(serviceAmount));
       formData.append('currency', serviceCurrency);
                
       if (issueImage) {      
