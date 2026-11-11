@@ -1,9 +1,159 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useOrder } from '../hook/useOrder';
-import { setSelectedService } from '../../admin/state/plumer_service.slice.jsx';
+import { setSelectedService } from '../state/order.slice.jsx';
 import Navbar from "../../../App/Navbar.jsx";
+
+/* ─────────────────────────────────────────────────────────
+   AUTH POPUP — shown after booking for unauthenticated users
+   ───────────────────────────────────────────────────────── */
+function AuthPopup({ onClose, navigate }) {
+  const reduxOrders = useSelector((state) => state.order?.orders || state.order?.item || []);
+  const reduxItem = useSelector((state) => state.order?.item || null);
+  const orderId =
+    reduxItem?._id ||
+    (Array.isArray(reduxItem) ? reduxItem[0]?._id : null) ||
+    (Array.isArray(reduxOrders) ? reduxOrders[0]?._id : reduxOrders?._id) ||
+    '';
+   
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: 'rgba(7,14,26,0.88)', backdropFilter: 'blur(12px)' }}
+    >
+      {/* Glow blobs */}
+      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-cyan-500/8 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Card */}
+      <div
+        className="relative w-full max-w-sm rounded-[28px] p-[1.5px] animate-[fadeInUp_0.35s_ease]"
+        style={{
+          background: 'linear-gradient(135deg, #00F2FE 0%, #FF6B00 55%, #FF8A00 100%)',
+          boxShadow: '0 20px 60px rgba(3,7,14,0.85), 0 0 40px rgba(255,107,0,0.18)',
+        }}
+      >
+        <div
+          className="relative rounded-[27px] p-6"
+          style={{ background: 'rgba(12,21,39,0.97)' }}
+        >
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all text-lg font-bold"
+          >
+            ✕
+          </button>
+
+          {/* Icon */}
+          <div className="flex justify-center mb-4">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center text-3xl"
+              style={{
+                background: 'radial-gradient(circle, rgba(255,107,0,0.3) 0%, rgba(255,107,0,0.05) 70%)',
+                boxShadow: '0 0 32px rgba(255,107,0,0.4)',
+                animation: 'pulse 2s infinite',
+              }}
+            >
+              🔧
+            </div>
+          </div>
+
+          {/* Title */}
+          <h2
+            className="text-center text-white font-black text-xl mb-1 tracking-tight"
+            style={{ fontFamily: 'Space Grotesk, sans-serif' }}
+          >
+            Booking Confirmed! 🎉
+          </h2>
+          <p
+            className="text-center font-bold text-sm mb-4"
+            style={{ color: '#FF6B00', fontFamily: 'Space Grotesk, sans-serif' }}
+          >
+            Track your plumber in real-time!
+          </p>
+
+          {/* Live status pill */}
+          <div
+            className="flex items-center justify-center gap-2 mx-auto mb-5 px-4 py-2 rounded-full w-fit"
+            style={{ background: 'rgba(0,242,254,0.08)', border: '1px solid rgba(0,242,254,0.25)' }}
+          >
+            <span
+              className="w-2 h-2 rounded-full bg-emerald-400"
+              style={{ animation: 'ping 1.2s cubic-bezier(0,0,0.2,1) infinite', boxShadow: '0 0 6px #34d399' }}
+            />
+            <span
+              className="text-xs font-semibold"
+              style={{ color: '#00F2FE', fontFamily: 'Space Grotesk, sans-serif' }}
+            >
+              Technician en route • ETA 18 mins
+            </span>
+          </div>
+
+          {/* Body text */}
+          <p
+            className="text-center text-sm leading-relaxed mb-6 px-1"
+            style={{ color: 'rgba(240,246,252,0.65)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+          >
+            You are now tracking your plumber.{' '}
+            <span style={{ color: 'rgba(240,246,252,0.9)' }}>
+              Register to get live status updates, booking history, and exclusive deals on our website.
+            </span>{' '}
+            Join thousands of happy customers!
+          </p>
+
+          {/* CTA buttons */}
+          <div className="space-y-3">
+            <button
+              onClick={() => { onClose(); navigate(`/customer/register?OrderId=${orderId}`); }}
+              className="w-full py-4 rounded-full font-bold text-white text-sm transition-all active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(90deg, #FF6B00, #FF8A00)',
+                boxShadow: '0 4px 24px rgba(255,107,0,0.45)',
+                fontFamily: 'Space Grotesk, sans-serif',
+              }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 28px rgba(255,107,0,0.65)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(255,107,0,0.45)'}
+            >
+              Register Now — It's Free
+            </button>
+
+            <button
+              onClick={() => { onClose(); navigate(`/customer/login?OrderId=${orderId}`); }}
+              className="w-full py-3.5 rounded-full font-semibold text-sm transition-all"
+              style={{
+                background: 'rgba(0,242,254,0.06)',
+                border: '1px solid rgba(0,242,254,0.5)',
+                color: '#00F2FE',
+                fontFamily: 'Space Grotesk, sans-serif',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,242,254,0.14)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,242,254,0.06)'}
+            >
+              Already have an account? Login
+            </button>
+          </div>
+
+          {/* Footer trust text */}
+          <p
+            className="text-center text-xs mt-5"
+            style={{ color: '#41536B', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+          >
+            ⭐ Join 50,000+ customers enjoying hassle-free plumbing
+          </p>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(32px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 /* ── Google Fonts (matching Home.jsx) ─────────────────────────── */
 const useGoogleFonts = () => {
@@ -31,20 +181,27 @@ const getCategoryIcon = (category = '') => {
   return '🛠️';
 };
 
-const ADDRESS_LABELS = ['Home', 'Office', 'Shop', 'Apartment', 'Other'];
+const ADDRESS_LABELS = ["Home", "office", "Shop", "apartment", 'Other'];
 
 export default function Booking() {
   useGoogleFonts();
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  // Check if user is logged in from Redux auth state
+  const user = useSelector((state) => state.auth?.User);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+
   // Order hook
-  const { handleCreateOrder,handleGetallService} = useOrder();
+  const { handleCreateOrder, handleGetallService, handleSetSelectedService } = useOrder();
 
-
-  // ── PURE REAL DATA FROM REDUX STATE (NO DUMMY DATA) ──
-  const realServices = useSelector((state) => state.order?.services || []);
+  // 4-Layer Architecture: Direct Redux Selectors from state.order (Layer 3: State Management)
+  const reduxServices = useSelector((state) => state.order?.services || []);
+  const reduxOrders = useSelector((state) => state.order?.orders || state.order?.item || []);
+  const reduxSelectedService = useSelector((state) => state.order?.selectedService || null);
   const reduxLoading = useSelector((state) => state.order?.loading || false);
+  const reduxError = useSelector((state) => state.order?.error || null);
 
   // Initial matching keys passed from navigation (if any)
   const navServiceKey = (
@@ -65,8 +222,9 @@ export default function Booking() {
 
   // Determine active service from real services in Redux
   const activeService =
-    realServices.find((s) => s._id === selectedServiceId) ||
-    realServices.find((s) => {
+    reduxSelectedService ||
+    reduxServices.find((s) => s._id === selectedServiceId) ||
+    reduxServices.find((s) => {
       if (!navServiceKey) return false;
       return (
         s._id?.toLowerCase() === navServiceKey ||
@@ -74,16 +232,16 @@ export default function Booking() {
         (s.serviceName && s.serviceName.toLowerCase().includes(navServiceKey))
       );
     }) ||
-    realServices[0] ||
+    reduxServices[0] ||
     null;
 
   // Auto-sync selectedService in local state and Redux slice
   useEffect(() => {
     if (activeService && activeService._id !== selectedServiceId) {
       setSelectedServiceId(activeService._id);
-      dispatch(setSelectedService(activeService));
+      handleSetSelectedService(activeService);
     }
-  }, [activeService, selectedServiceId, dispatch]);
+  }, [activeService, selectedServiceId]);
 
   const [issueDescription, setIssueDescription] = useState('');
   const [issueImage, setIssueImage] = useState(null);
@@ -105,7 +263,8 @@ export default function Booking() {
   const [cooldown, setCooldown] = useState(0); // 1 minute cooldown
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [createdOrder, setCreatedOrder] = useState(null);
+  // Direct derivation of created/latest order from Redux store without intermediate useState
+  const createdOrder = Array.isArray(reduxOrders) ? reduxOrders[0] : (reduxOrders?._id ? reduxOrders : null);
   const [visible, setVisible] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -195,6 +354,7 @@ export default function Booking() {
 
       // Append amount & currency from real active service
       const serviceAmount =
+      console.log(activeService);
         typeof activeService.price === 'object' && activeService.price !== null
           ? activeService.price.amount
           : activeService.price || 200;
@@ -205,8 +365,8 @@ export default function Booking() {
 
       formData.append('amount', String(serviceAmount));
       formData.append('currency', serviceCurrency);
-
-      if (issueImage) {
+               
+      if (issueImage) {      
         formData.append('Images', issueImage);
       }
 
@@ -214,8 +374,12 @@ export default function Booking() {
       const res = await handleCreateOrder(formData);
 
       setSuccess(true);
-      setCreatedOrder(res?.order || null);
       setCooldown(60); // 1-minute active cooldown
+
+      // Show auth popup if user is NOT logged in
+    
+        setTimeout(() => setShowAuthPopup(true), 800);
+     
     } catch (err) {
       console.error('Booking submission error:', err);
       const msg = err?.response?.data?.message || err?.message || 'Failed to submit booking. Please try again.';
@@ -240,6 +404,13 @@ export default function Booking() {
         backgroundPosition: 'center',
       }}
     >
+      {/* Auth Popup — only for guest users after booking */}
+      {showAuthPopup && (
+        <AuthPopup
+          onClose={() => setShowAuthPopup(false)}
+          navigate={navigate}
+        />
+      )}
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-[#070E1A]/92 backdrop-blur-sm" />
 
@@ -303,7 +474,6 @@ export default function Booking() {
                     onClick={() => {
                       setSuccess(false);
                       setIssueDescription('');
-                      setCreatedOrder(null);
                       removeImage();
                     }}
                     className="text-xs bg-emerald-500 text-slate-900 font-bold px-3 py-1.5 rounded-lg border-0 cursor-pointer hover:bg-emerald-400"
@@ -330,7 +500,7 @@ export default function Booking() {
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] sm:text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    ● {realServices.length} Live in Redux
+                    ● {reduxServices.length} Live in Redux
                   </span>
                   {activeService?._id && (
                     <span className="text-[10px] sm:text-[11px] text-cyan-400 font-mono hidden sm:inline">
@@ -341,7 +511,7 @@ export default function Booking() {
               </div>
 
               {/* Loading State when Redux is fetching */}
-              {realServices.length === 0 && reduxLoading && (
+              {reduxServices.length === 0 && reduxLoading && (
                 <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center animate-pulse">
                   <div className="text-xs text-cyan-300 font-semibold flex items-center justify-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
@@ -351,9 +521,9 @@ export default function Booking() {
               )}
 
               {/* Real Services Grid from Redux */}
-              {realServices.length > 0 && (
+              {reduxServices.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
-                  {realServices.map((srv) => {
+                  {reduxServices.map((srv) => {
                     const isSelected = activeService?._id === srv._id;
                     const icon = getCategoryIcon(srv.category);
                     const amount =
@@ -372,7 +542,7 @@ export default function Booking() {
                         type="button"
                         onClick={() => {
                           setSelectedServiceId(srv._id);
-                          dispatch(setSelectedService(srv));
+                          handleSetSelectedService(srv);
                         }}
                         className={`flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl text-left border transition-all cursor-pointer ${
                           isSelected

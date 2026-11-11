@@ -5,6 +5,8 @@ import { validatedAndFormate } from "../validator/contact.validator.js";
 import { technicianWelcomeEmail, BRAND } from "../utils/emailTemplates.js";
 import jwt from "jsonwebtoken";
 import { Config } from "../config/config.js";
+import OrderModel from "../models/Order.model.js";
+import { getIo } from "../socket/server.socket.js";
 
 export async function RegisterTechnicianController(req, res) {
   try {
@@ -72,7 +74,7 @@ export async function RegisterTechnicianController(req, res) {
       { expiresIn: "7d" }
     );
 
-    const baseUrl =
+    const baseUrl = 
       process.env.BASE_URL ||
       Config.BASE_URL ||
       "https://frpf-plumbing.onrender.com";
@@ -119,15 +121,15 @@ export async function RegisterTechnicianController(req, res) {
               <a href="${verifyUrl}" style="background:linear-gradient(135deg, #00B4D8 0%, #0096C7 100%); color:#070E1A; text-decoration:none; padding:14px 28px; border-radius:10px; font-weight:800; display:inline-block; font-size:14px;">
                 🔧 Verify Email & Unlock Dashboard →
               </a>
-            </div>
+            </div>             
             <p style="color:#64748B; font-size:12px; text-align:center;">Our technician onboarding team will reach out to schedule your skill verification and interview according to your assigned time slot.</p>
           </div>
         </body>
         </html>
-      `;
+      `;    
     }
 
-    try {
+    try { 
       await SendMailDynamicContent({
         subject,
         email,
@@ -158,11 +160,131 @@ export async function RegisterTechnicianController(req, res) {
     });
   }
 }
+// orderController.js
+export const acceptJobController = async (req, res) => {
+    try {
+        const { OrderId, technicianId } = req.body;
 
-export const TechnicianRegisterController = RegisterTechnicianController;
+        // 1. डेटाबेस में ऑर्डर अपडेट करो (Pending से Accepted)
+        const updatedOrder = await OrderModel.findOneAndUpdate(
+            { _id: OrderId, status: { $in: ["Pending", "Accepted"] } }, 
+            { 
+                status: "Accepted", 
+                technicianId: technicianId 
+            },
+            { returnDocument: 'after' }
+        ).populate('technicianId').populate('userId');
 
-export async function GetCustomerController(req, res) {}
+        if (!updatedOrder) {
+            return res.status(400).json({ success: false, message: "Job already taken or not found!" });
+        }
 
-export async function AcceptedWorkController(req, res) {
-  const { service_Id } = req.body;
+        // Fetch technician profile to include live location
+        let techProfile = null;
+        if (technicianId) {
+            techProfile = await TechnicianProfileModel.findOne({ userId: technicianId });
+        }
+        if (!techProfile && updatedOrder.technicianId) {
+            techProfile = await TechnicianProfileModel.findOne({
+                userId: updatedOrder.technicianId._id || updatedOrder.technicianId,
+            });
+        }
+
+        const payload = {
+            order: updatedOrder,
+            technician: updatedOrder.technicianId,
+            technicianProfile: techProfile,
+            technicianLocation: techProfile?.liveLocation?.coordinates
+                ? {
+                    longitude: Number(techProfile.liveLocation.coordinates[0]),
+                    latitude: Number(techProfile.liveLocation.coordinates[1]),
+                }
+                : null,
+            status: "Accepted",
+        };
+
+        // 2. 🚀 Customer को Socket से बता दो कि "तुम्हें प्लंबर मिल गया है!"
+        const io = await getIo();
+        if (updatedOrder.userId) {
+            const uId = updatedOrder.userId._id
+                ? updatedOrder.userId._id.toString()
+                : updatedOrder.userId.toString();
+            io.to(uId).emit('plumber-assigned', payload);
+        }
+        io.to(OrderId.toString()).emit('plumber-assigned', payload);
+        io.to(OrderId.toString()).emit('receive-status', { status: "Accepted" });
+
+        res.status(200).json({ success: true, message: "Job Accepted!", order: updatedOrder });
+    } catch (err) {
+        console.error("acceptJobController error:", err);
+        res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    }
+};
+
+export const GetTechnicianNotificationsController = async (req, res) => {
+    try {
+        // Fetch all pending / active orders available for technicians
+        const orders = await OrderModel.find({ status: { $in: ["Pending", "Accepted"] } })
+            .populate("userId")
+            .sort({ createdAt: -1 })
+            .limit(25);
+
+        const notifications = orders.map((order) => {
+            const user = order.userId || {};
+            const street = order.address?.street || "Nearby Customer Address";
+            const city = order.address?.city || "";
+            const pinCode = order.address?.pin_code || "";
+            const coords = order.address?.location?.coordinates || [72.8777, 19.0760];
+
+            return {
+                id: order._id.toString(),
+                orderId: order._id.toString(),
+                OrderId: order._id.toString(),
+                title: "🚨 Emergency Plumbing Dispatch",
+                customer: user.FullName || user.name || "Customer",
+                phone: user.contact || user.phone || "",
+                email: user.email || "",
+                serviceType: order.ServiceDetails?.serviceName || order.issuedDescription || "Emergency Leakage / Repair",
+                category: order.ServiceDetails?.category || "General Repair",
+                address: order.address,
+                street,
+                city,
+                pinCode,
+                location: [street, city, pinCode].filter(Boolean).join(", "),
+                coordinates: coords, // [lng, lat]
+                latitude: Number(coords[1]) || 19.0760,
+                longitude: Number(coords[0]) || 72.8777,
+                distance: "Within 25 Km Zone",
+                estimatedPrice: order.total_Amount?.amount ? `₹${order.total_Amount.amount}` : "₹500",
+                amount: order.total_Amount?.amount || 500,
+                status: order.status,
+                urgent: true,
+                unread: true,
+                createdAt: order.createdAt,
+                time: "Recently Dispatched",
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Technician notifications loaded",
+            notifications,
+        });
+    } catch (error) {
+        console.error("GetTechnicianNotificationsController error:", error);
+        res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+    }
+};
+
+export const GetTechnicianController=async(req,res)=>{
+     const userid= req.user.id
+     const TechnicianData=await TechnicianProfileModel.findOne({userId:userid}).populate('userId')
+
+     res.status(200).json({
+      message:"Get Technician Successfully",
+      TechnicianData
+     })
 }
+
+
+

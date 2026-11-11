@@ -147,7 +147,7 @@ export default function ForgetPassword() {
             Set New Password
           </h1>
           <p className="text-white/45 text-sm mb-7 leading-relaxed">
-            Enter your email/username and create a fresh secure password.
+            Enter your email and create a fresh secure password.
           </p>
 
           {/* Error Message */}
@@ -183,7 +183,7 @@ export default function ForgetPassword() {
             {/* Field 1: Email or Username */}
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-[0.08em] mb-2">
-                Email or Username
+                Email 
               </label>
               <input
                 type="text"

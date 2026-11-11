@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, replace, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../hook/useAuth';
 import Navbar from "../../../App/Navbar.jsx"
@@ -76,6 +76,8 @@ function Field({ label, type = 'text', placeholder, value, onChange, required, c
 export default function   Register() {
   useGoogleFonts();
   const navigate = useNavigate();
+  const reduxItem = useSelector((state) => state.order?.item || []);
+  
 
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [showPw, setShowPw]       = useState(false);
@@ -87,6 +89,10 @@ export default function   Register() {
   const [errorMsg, setErrorMsg]   = useState('');
   const authError = useSelector((state) => state.auth?.Error);
   const { handleRegister } = useAuth();
+  const [searchParams] = useSearchParams();
+
+    // 🚀 3. 'get' मेथड का इस्तेमाल करके orderId निकालें
+    const OrderId = searchParams.get('OrderId') 
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -136,15 +142,39 @@ export default function   Register() {
 
     setLoading(true);
     try {
- await handleRegister({
+      if(OrderId){
+           await handleRegister({
         FullName: form.name.trim(),
         email: form.email.trim(),
         contact: "+" +form.phone.trim(),
         role: 'customer',
         password: form.password,
+        OrderId:OrderId,
+        
       });
 
       showToast({
+        type: 'success',
+        message: `Account created for ${form.name.trim()}! Please check email.`,
+        actionText: 'Sign In',
+        onAction: () => navigate('/customer/login'),
+        duration: 5000,
+      });
+    
+      setTimeout(() => {
+        navigate(`/customer/login?OrderId=${OrderId}`)
+      }, 1200);
+      }
+      else{
+         await handleRegister({
+        FullName: form.name.trim(),
+        email: form.email.trim(),
+        contact: "+" +form.phone.trim(),
+        role: 'customer',
+        password: form.password,
+       
+      });
+        showToast({
         type: 'success',
         message: `Account created for ${form.name.trim()}! Please check email.`,
         actionText: 'Sign In',
@@ -156,6 +186,10 @@ export default function   Register() {
       setTimeout(() => {
         navigate('/customer/login');
       }, 1200);
+      }
+
+
+    
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || 'Registration failed. Please try again.';
       setErrorMsg(msg);
@@ -238,6 +272,7 @@ export default function   Register() {
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-[0.08em] mb-2">
                 Phone Number
+                
               </label>
               <div className="relative">
                 <PhoneInput

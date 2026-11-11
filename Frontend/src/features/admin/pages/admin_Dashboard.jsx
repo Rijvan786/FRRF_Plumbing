@@ -50,45 +50,54 @@ const RefreshIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
-/* ── Default Demo Technicians for Today's Popup ── */
-const DEMO_TODAYS_TECHNICIANS = [
-  {
-    id: 'tech-1',
-    fullName: 'Ramesh Patel',
-    phone: '+91 98234 56789',
-    email: 'ramesh.plumber@gmail.com',
-    city: 'Indore',
-    registeredAt: '10:15 AM today',
-    experienceYears: 6,
-    specialization: 'CPVC Concealed & Geyser Installation',
-    isVerifiedTech: false,
-    rating: 4.8,
-  },
-  {
-    id: 'tech-2',
-    fullName: 'Mohd. Imran Khan',
-    phone: '+91 97123 45678',
-    email: 'imran.khan.plumbing@gmail.com',
-    city: 'Indore',
-    registeredAt: '11:42 AM today',
-    experienceYears: 8,
-    specialization: 'Main Line Sewer & Chamber Cleaning',
-    isVerifiedTech: true,
-    rating: 4.9,
-  },
-  {
-    id: 'tech-3',
-    fullName: 'Deepak Sharma',
-    phone: '+91 99887 65432',
-    email: 'deepak.service@hotmail.com',
-    city: 'Bhopal',
-    registeredAt: '01:20 PM today',
-    experienceYears: 4,
-    specialization: 'Tap Washers, Mixer Valves & Commode Siphon',
-    isVerifiedTech: false,
-    rating: 4.7,
-  },
-];
+/* ── Technician Item Mapper (Real Data from MongoDB / Redux) ── */
+const mapTechnicianItem = (t) => {
+  if (!t) return null;
+  const user = t.userId && typeof t.userId === 'object' ? t.userId : {};
+  const fullName = user.FullName || t.FullName || t.fullName || 'Registered Technician';
+  const phone = user.contact || t.contact || t.phone || 'Phone not on record';
+  const email = user.email || t.email || 'Email not on record';
+
+  const addr = t.permanentAddress || {};
+  const city = addr.city || t.city || 'Operational City';
+  const street = addr.street || t.street || '';
+  const pinCode = addr.pin_code || t.pin_code || '';
+  const fullAddress = [street, city, pinCode ? `PIN ${pinCode}` : ''].filter(Boolean).join(', ');
+
+  const regDate = t.createdAt ? new Date(t.createdAt) : null;
+  const registeredAt = regDate && !isNaN(regDate)
+    ? regDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) + ' today'
+    : (t.registeredAt || 'Today');
+
+  const experienceYears = t.experienceYears ?? 4;
+  const isVerifiedTech = Boolean(t.isVerifiedTech ?? user.verified ?? false);
+  const rating = t.rating ?? 5.0;
+
+  const skillsList = Array.isArray(t.skills) && t.skills.length > 0
+    ? t.skills.join(', ')
+    : (t.specialization || 'CPVC & General Plumbing');
+
+  return {
+    id: t._id || t.id || `tech-${Math.random()}`,
+    _id: t._id || t.id,
+    fullName,
+    phone,
+    email,
+    city,
+    street,
+    pinCode,
+    fullAddress: fullAddress || city,
+    registeredAt,
+    rawDate: regDate,
+    experienceYears,
+    specialization: skillsList,
+    isVerifiedTech,
+    rating,
+    isOnline: Boolean(t.isOnline),
+    isAvailable: Boolean(t.isAvailable),
+    raw: t,
+  };
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -167,7 +176,9 @@ export default function AdminDashboard() {
   // State: Real Services from Backend & Redux
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
-  const [todaysTechs, setTodaysTechs] = useState(DEMO_TODAYS_TECHNICIANS);
+  const [todaysTechs, setTodaysTechs] = useState([]);
+  const [loadingTechs, setLoadingTechs] = useState(true);
+  const [techFilter, setTechFilter] = useState('all'); // all | verified | pending
   const [showTechPopup, setShowTechPopup] = useState(false);
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -188,20 +199,8 @@ export default function AdminDashboard() {
 
   // Sync state whenever Redux today technicians update
   useEffect(() => {
-    if (Array.isArray(reduxTodayTechs) && reduxTodayTechs.length > 0) {
-      const mapped = reduxTodayTechs.map((t) => ({
-        id: t._id || t.id,
-        fullName: t.userId?.FullName || t.fullName || 'New Technician',
-        phone: t.userId?.contact || t.phone || '+91 98765 00000',
-        email: t.userId?.email || t.email || 'tech@frrf.com',
-        city: t.city || 'Indore',
-        registeredAt: 'Today',
-        experienceYears: t.experienceYears || 3,
-        specialization: t.skills?.join(', ') || 'General Plumbing & CPVC',
-        isVerifiedTech: !!t.userId?.isVerifiedTech,
-        rating: 5.0,
-      }));
-      setTodaysTechs(mapped);
+    if (Array.isArray(reduxTodayTechs)) {
+      setTodaysTechs(reduxTodayTechs.map(mapTechnicianItem).filter(Boolean));
     }
   }, [reduxTodayTechs]);
 
@@ -221,35 +220,29 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch real technicians registered today from MongoDB
+  const fetchRealTodayTechnicians = async () => {
+    try {
+      setLoadingTechs(true);
+      const res = await handleGetTodayTechnicians();
+      const rawList =
+        res?.data ||
+        res?.todaysPlumbers ||
+        res?.technicians ||
+        (Array.isArray(res) ? res : []);
+      if (Array.isArray(rawList)) {
+        setTodaysTechs(rawList.map(mapTechnicianItem).filter(Boolean));
+      }
+    } catch (err) {
+      console.error('Failed to load real today technicians:', err);
+    } finally {
+      setLoadingTechs(false);
+    }
+  };
+
   useEffect(() => {
     fetchRealServices();
-  }, []);
-
-  // Load today's technicians on mount (which saves to Redux)
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const res = await handleGetTodayTechnicians();
-        if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
-          const mapped = res.data.map((t) => ({
-            id: t._id || t.id,
-            fullName: t.userId?.FullName || t.fullName || 'New Technician',
-            phone: t.userId?.contact || t.phone || '+91 98765 00000',
-            email: t.userId?.email || t.email || 'tech@frrf.com',
-            city: t.city || 'Indore',
-            registeredAt: 'Today',
-            experienceYears: t.experienceYears || 3,
-            specialization: t.skills?.join(', ') || 'General Plumbing & CPVC',
-            isVerifiedTech: !!t.userId?.isVerifiedTech,
-            rating: 5.0,
-          }));
-          setTodaysTechs(mapped);
-        }
-      } catch (err) {
-        console.log('Using demo data for today technicians:', err?.message);
-      }
-    }
-    loadData();
+    fetchRealTodayTechnicians();
   }, []);
 
   const showToast = (msg, type = 'success') => {
@@ -426,7 +419,7 @@ export default function AdminDashboard() {
                   New Today
                 </div>
                 <div className="text-xs font-bold text-cyan-300 leading-tight">
-                  {todaysTechs.length} Plumbers
+                  {loadingTechs ? 'Loading...' : `${todaysTechs.length} Plumber${todaysTechs.length === 1 ? '' : 's'}`}
                 </div>
               </div>
 
@@ -466,7 +459,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 text-center divide-x-0 lg:divide-x divide-white/8">
           {[
             { val: `${services.length} Services`, lbl: 'Active Catalog Running', icon: '🛠️', color: 'text-orange-500' },
-            { val: `${todaysTechs.length} Plumbers`, lbl: 'Registered Today', icon: '👨‍🔧', color: 'text-cyan-400' },
+            { val: loadingTechs ? '...' : `${todaysTechs.length} Plumber${todaysTechs.length === 1 ? '' : 's'}`, lbl: 'Registered Today', icon: '👨‍🔧', color: 'text-cyan-400' },
             { val: '18 min', lbl: 'Avg Arrival Guarantee', icon: '⚡', color: 'text-emerald-400' },
             { val: '4.9★ (12K+)', lbl: 'Customer Rating', icon: '⭐', color: 'text-amber-400' },
           ].map((stat, i) => (
@@ -660,7 +653,7 @@ export default function AdminDashboard() {
         </button>
       </section>
       {/* ══════════════════════════════════════════════════════════════
-          POPUP MODAL: "Show Pop up of New Today registe Technicain"
+          POPUP MODAL: Real Registered Technicians Today
           Triggered by clicking the top-right dark box
       ══════════════════════════════════════════════════════════════ */}
       {showTechPopup && (
@@ -675,32 +668,63 @@ export default function AdminDashboard() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-black text-lg sm:text-xl text-white">
-                      Today's Registered Technicians
+                      Registered Technicians Today
                     </h3>
                     <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                      {todaysTechs.length} New
+                      {todaysTechs.length} Real
                     </span>
                   </div>
                   <p className="text-white/45 text-[11px] sm:text-xs mt-0.5">
-                    Plumbers who completed onboarding today
+                    Live partner onboarding records from MongoDB
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowTechPopup(false)}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
-              >
-                <CloseIcon />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchRealTodayTechnicians}
+                  disabled={loadingTechs}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-white/60 hover:text-cyan-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  title="Refresh technician list from database"
+                >
+                  <RefreshIcon className={`w-4 h-4 ${loadingTechs ? 'animate-spin text-cyan-400' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTechPopup(false)}
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
             </div>
 
-            {/* Search filter inside modal */}
-            <div className="px-3.5 sm:px-5 pt-3 sm:pt-4">
+            {/* Filter Pills & Search */}
+            <div className="px-3.5 sm:px-5 pt-3 sm:pt-4 space-y-2.5">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {[
+                  { id: 'all', label: `All (${todaysTechs.length})` },
+                  { id: 'verified', label: `Verified (${todaysTechs.filter((t) => t.isVerifiedTech).length})` },
+                  { id: 'pending', label: `Pending Approval (${todaysTechs.filter((t) => !t.isVerifiedTech).length})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setTechFilter(tab.id)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                      techFilter === tab.id
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-700 text-white shadow-[0_0_15px_rgba(255,107,53,0.35)]'
+                        : 'bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               <input
                 type="text"
-                placeholder="Search technician by name, phone or skill..."
+                placeholder="Search by name, phone, city or skill..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-[#101C30]/80 border border-white/10 rounded-xl px-3.5 sm:px-4 py-2.5 text-white text-xs sm:text-sm placeholder-white/25 focus:outline-none focus:border-cyan-500/60"
@@ -709,73 +733,128 @@ export default function AdminDashboard() {
 
             {/* Technicians List */}
             <div className="p-3.5 sm:p-5 overflow-y-auto space-y-3 sm:space-y-3.5 flex-1">
-              {todaysTechs
-                .filter(
-                  (t) =>
-                    t.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    t.phone.includes(searchTerm) ||
-                    t.specialization.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((tech) => (
-                  <div
-                    key={tech.id}
-                    className="bg-[#101C30]/80 hover:bg-[#14233D] border border-white/8 hover:border-white/15 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 w-full sm:w-auto">
-                      {/* Avatar */}
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#E5D768] border-2 border-purple-500 flex items-center justify-center text-slate-900 font-black text-xs sm:text-sm shrink-0 shadow-md">
-                        {tech.fullName.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xs sm:text-sm text-white truncate">
-                            {tech.fullName}
-                          </h4>
-                          {tech.isVerifiedTech ? (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                              ✓ Verified
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                              Pending
-                            </span>
-                          )}
+              {/* Skeletons while loading */}
+              {loadingTechs && (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className="bg-[#101C30]/80 border border-white/5 rounded-2xl p-4 animate-pulse space-y-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white/10" />
+                        <div className="space-y-1.5 flex-1">
+                          <div className="h-4 bg-white/10 rounded w-1/3" />
+                          <div className="h-3 bg-white/5 rounded w-1/2" />
                         </div>
-                        <p className="text-white/45 text-[11px] sm:text-xs truncate mt-0.5">
-                          {tech.phone} • {tech.email}
-                        </p>
-                        <p className="text-cyan-400/80 text-[10px] sm:text-[11px] font-medium mt-0.5 sm:mt-1 truncate">
-                          🛠️ {tech.specialization} ({tech.experienceYears} yrs) • {tech.registeredAt}
-                        </p>
                       </div>
                     </div>
+                  ))}
+                </div>
+              )}
 
-                    {/* Quick action button (Full width on mobile) */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-white/5">
-                      {!tech.isVerifiedTech ? (
-                        <button
-                          type="button"
-                          onClick={() => onVerifyTech(tech)}
-                          className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
-                        >
-                          <UserCheckIcon className="w-3.5 h-3.5" />
-                          <span>Approve & Verify</span>
-                        </button>
-                      ) : (
+              {/* Real Technicians Render */}
+              {!loadingTechs &&
+                todaysTechs
+                  .filter((t) => {
+                    if (techFilter === 'verified') return t.isVerifiedTech;
+                    if (techFilter === 'pending') return !t.isVerifiedTech;
+                    return true;
+                  })
+                  .filter(
+                    (t) =>
+                      t.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      t.phone.includes(searchTerm) ||
+                      t.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      t.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      t.specialization.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((tech) => (
+                    <div
+                      key={tech.id}
+                      className="bg-[#101C30]/85 hover:bg-[#14233D] border border-white/8 hover:border-cyan-500/40 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shadow-sm group"
+                    >
+                      <div className="flex items-start sm:items-center gap-3 sm:gap-3.5 min-w-0 w-full sm:w-auto">
+                        {/* Avatar */}
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-cyan-600/30 to-blue-600/20 border-2 border-cyan-500/40 flex items-center justify-center text-cyan-300 font-black text-sm shrink-0 shadow-md">
+                          {tech.fullName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm sm:text-base text-white truncate">
+                              {tech.fullName}
+                            </h4>
+                            {tech.isVerifiedTech ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                ✓ Certified & Verified
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                ⏳ Pending Review
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap text-white/50 text-[11px] sm:text-xs mt-1">
+                            <span className="font-mono text-white/70">{tech.phone}</span>
+                            <span className="text-white/20">•</span>
+                            <span className="font-mono truncate">{tech.email}</span>
+                          </div>
+
+                          <p className="text-white/40 text-[10px] sm:text-[11px] mt-1 flex items-center gap-1.5 truncate">
+                            <span>📍</span>
+                            <span>{tech.fullAddress}</span>
+                            <span className="text-white/20">•</span>
+                            <span className="text-cyan-300 font-semibold">{tech.experienceYears}+ Yrs Exp</span>
+                            <span className="text-white/20">•</span>
+                            <span className="text-amber-400 font-bold">★ {tech.rating}</span>
+                          </p>
+
+                          <p className="text-cyan-400/80 text-[10px] sm:text-[11px] font-medium mt-1 truncate">
+                            🛠️ {tech.specialization} • Registered {tech.registeredAt}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick action button (Full width on mobile) */}
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-white/8 shrink-0">
+                        {!tech.isVerifiedTech && (
+                          <button
+                            type="button"
+                            onClick={() => onVerifyTech(tech)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
+                          >
+                            <UserCheckIcon className="w-3.5 h-3.5" />
+                            <span>Approve & Verify</span>
+                          </button>
+                        )}
+
                         <a
                           href={`tel:${tech.phone}`}
                           className="w-full sm:w-auto flex items-center justify-center bg-white/6 hover:bg-white/12 border border-white/10 text-white/80 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors no-underline"
                         >
                           📞 Call Plumber
                         </a>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-              {todaysTechs.length === 0 && (
-                <div className="text-center py-10 text-white/40 text-sm">
-                  No new technicians registered yet today.
+              {!loadingTechs && todaysTechs.length === 0 && (
+                <div className="text-center py-12 px-4 bg-[#101C30]/50 rounded-2xl border border-white/5">
+                  <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 text-2xl text-white/40">
+                    👨‍🔧
+                  </div>
+                  <h4 className="font-bold text-white text-sm sm:text-base mb-1">
+                    No Technicians Registered Today
+                  </h4>
+                  <p className="text-white/40 text-xs max-w-sm mx-auto mb-4 leading-relaxed">
+                    New partner registration submissions created today will appear here dynamically in real time.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={fetchRealTodayTechnicians}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-400 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <RefreshIcon className="w-3.5 h-3.5" />
+                    <span>Check for New Registrations</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -783,7 +862,7 @@ export default function AdminDashboard() {
             {/* Footer */}
             <div className="p-3.5 sm:p-4 border-t border-white/10 bg-[#070D1A] flex items-center justify-between">
               <span className="text-white/40 text-xs">
-                Registrations: <strong className="text-white">{todaysTechs.length}</strong>
+                Real Today Registrations: <strong className="text-white">{todaysTechs.length}</strong>
               </span>
               <button
                 type="button"

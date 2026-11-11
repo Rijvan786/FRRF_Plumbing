@@ -9,13 +9,14 @@ const upload=multer({storage:multer.memoryStorage(),
     limits:5*1024*1024
 })
 
-router.post("/createService",AuthenticateUser,AuthenticateAdmin,upload.array("Images",7),CreateServiceValidation,CreateServiceController)
+router.post("/createService",AuthenticateAdmin, AuthenticateUser,upload.array("Images",7),CreateServiceValidation,CreateServiceController)
 
-router.get("/GetallServices",AuthenticateUser,GetAllServicesController)
+router.get("/GetallServices", AuthenticateUser,GetAllServicesController)
 
-router.get("/getTodayRegisterTechnicians",getTodaysRegisteredPlumbers)
-
-
+router.get("/getTodayRegisterTechnicians",AuthenticateUser,AuthenticateAdmin,getTodaysRegisteredPlumbers)
 
 
-export default router
+      
+export default router 
+
+                                  

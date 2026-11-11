@@ -72,7 +72,7 @@ export default function Navbar() {
   const handleNavClick = (id) => {
     setMenuOpen(false);
     if (id === 'job') {
-      navigate('/Technician-register');
+      navigate('/technician/technician-register');
       return;
     }
     if (id === 'home') {
@@ -217,7 +217,7 @@ export default function Navbar() {
                   </div>
 
                   <Link
-                    to={user.role === 'technician' ? '/Technician-Profile' : '/customer/profile'}
+                    to={user.role === 'technician' ? '/technician/Technician-Profile' : '/customer/profile'}
                     onClick={() => setProfileMenuOpen(false)}
                     className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-white/80 hover:text-white hover:bg-white/8 rounded-xl transition-colors"
                   >
@@ -309,7 +309,7 @@ export default function Navbar() {
               </div>
               <div className="flex gap-2">
                 <Link
-                  to={user.role === 'technician' ? '/Technician-Profile' : '/customer/profile'}
+                  to={user.role === 'technician' ? '/technician/Technician-Profile' : '/customer/profile'}
                   onClick={() => setMenuOpen(false)}
                   className="flex-1 bg-white/10 border border-white/15 text-white py-2 rounded-full font-semibold text-center text-xs"
                 >

@@ -7,7 +7,7 @@ import { Config } from "../config/config.js";
 export async function AuthenticateUser(req,res,next){
     try {
         const token= req.cookies.token
-        console.log(token);
+        
         if(!token){
             return res.status(404).json({
                 message:"User is not provided token"
@@ -42,7 +42,7 @@ export async function AuthenticateUser(req,res,next){
 export async function AuthenticateTechnician(req,res,next){
         try {
         const token= req.cookies.token
-        console.log(token);
+     
         if(!token){
             return res.status(404).json({
                 message:"User is not provided token"
@@ -52,11 +52,12 @@ export async function AuthenticateTechnician(req,res,next){
 
             const decoded=jwt.verify(token,Config.JWT_SECRET)
             req.user=decoded
-          if(user.role !== "Technician"){
+          if(req.user.role !== "technician"){
             return res.status(400).json({
                   message:"Access Denied Bad Request"
             })
           }
+    
         
    next()
 

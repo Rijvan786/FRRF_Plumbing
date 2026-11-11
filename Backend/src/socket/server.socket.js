@@ -1,30 +1,30 @@
 import { Server } from "socket.io";
 import trackingHandler from "./trackinghandler.js";
 
+let io = null;
 
-let io
-export async function Initfunction(httpServer){
+export function Initfunction(httpServer) {
+  io = new Server(httpServer, {
+    cors: {
+      origin: "https://frpf-plumbing.onrender.com",
+      credentials: true,
+      methods: ["GET", "POST"],
+    },
+  });
 
-    io =new Server(httpServer,{
-        cors:{
-            origin:["https://frpf-plumbing.onrender.com", "http://localhost:5173"],
-            credentials:true
-        }
-    })
-    console.log("socket is running");
-  
-    io.on("connect",(socket)=>{
-        console.log("User is connected to server",socket.id);
-    
-    
-   trackingHandler(io,socket)
-    })
-    
-    return io
+  console.log("⚡ Socket.IO server initialized with CORS");
+
+  io.on("connect", (socket) => {
+    console.log("🟢 User connected to Socket.IO server:", socket.id);
+    trackingHandler({ io, socket });
+  });
+
+  return io;
 }
-async function getIo(){
-    if(!io){
-        throw new Error("Error occurred not ready to connect socket io")
-    }
-    return io
+
+export function getIo() {
+  if (!io) {
+    throw new Error("Socket.IO is not initialized yet");
+  }
+  return io;
 }

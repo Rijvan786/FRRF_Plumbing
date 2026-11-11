@@ -77,61 +77,45 @@ export default function AllServices() {
   const dispatch = useDispatch();
 
   // Purely using handleGetallService and Redux state from useOrder
-  const { handleGetallService, services: reduxServices, loading: reduxLoading } = useOrder();
+  const { handleGetallService } = useOrder();
 
-  const [servicesList, setServicesList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // 4-Layer Architecture: Direct Redux Selectors from state.order (Layer 3: State Management)
+  const reduxServices = useSelector((state) => state.order?.services || []);
+  const reduxOrders = useSelector((state) => state.order?.orders || state.order?.item || []);
+  const reduxSelectedService = useSelector((state) => state.order?.selectedService || null);
+  const reduxLoading = useSelector((state) => state.order?.loading || false);
+  const reduxError = useSelector((state) => state.order?.error || null);
+
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [priceFilter, setPriceFilter] = useState('all'); // 'all', 'under500', '500to1500', 'above1500'
   const [sortBy, setSortBy] = useState('default'); // 'default', 'price-low', 'price-high', 'time'
   const [detailModalService, setDetailModalService] = useState(null);
 
-  // Fetch real data on mount using handleGetallService from useOrder
-  const fetchServices = async () => {
-    try {
-      setLoading(true);
-      const res = await handleGetallService();
-      const list = res?.services || (Array.isArray(res) ? res : res?.data?.services || []);
-      if (Array.isArray(list)) {
-        setServicesList(list);
-      }
-    } catch (err) {
-      console.error('Error fetching services with handleGetallService:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Fetch real data on mount using handleGetallService from useOrder (saves directly to Redux)
   useEffect(() => {
-    fetchServices();
+    handleGetallService().catch((err) => {
+      console.error('Error fetching services with handleGetallService:', err);
+    });
   }, []);
 
-  // Synchronize when Redux services store updates
-  useEffect(() => {
-    if (Array.isArray(reduxServices) && reduxServices.length > 0) {
-      setServicesList(reduxServices);
-      setLoading(false);
-    }
-  }, [reduxServices]);
-
-  // Extract distinct categories and their counts from real services
+  // Extract distinct categories and their counts directly from real Redux services
   const categoryCounts = useMemo(() => {
-    const counts = { All: servicesList.length };
-    servicesList.forEach((s) => {
+    const counts = { All: reduxServices.length };
+    reduxServices.forEach((s) => {
       const cat = s.category ? s.category.trim() : 'General';
       counts[cat] = (counts[cat] || 0) + 1;
     });
     return counts;
-  }, [servicesList]);
+  }, [reduxServices]);
 
   const categories = useMemo(() => {
     return Object.keys(categoryCounts);
   }, [categoryCounts]);
 
-  // Filter & Sort strictly based on real fields
+  // Filter & Sort strictly based on real Redux services
   const filteredServices = useMemo(() => {
-    return servicesList
+    return reduxServices
       .filter((service) => {
         // Category filter
         const matchesCategory =
@@ -172,7 +156,7 @@ export default function AllServices() {
         if (sortBy === 'time') return timeA - timeB;
         return 0;
       });
-  }, [servicesList, selectedCategory, searchQuery, priceFilter, sortBy]);
+  }, [reduxServices, selectedCategory, searchQuery, priceFilter, sortBy]);
 
   // Action: Book Service -> passes real service object & _id to /customer/booking
   const onBookService = (service) => {
@@ -223,7 +207,7 @@ export default function AllServices() {
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-white/50 font-medium">
             <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3.5 py-1.5">
-              <span>🛠️</span> {servicesList.length} Live Services
+              <span>🛠️</span> {reduxServices.length} Live Services
             </span>
             <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3.5 py-1.5">
               <span>⚡</span> 18-Min Dispatch
@@ -300,16 +284,7 @@ export default function AllServices() {
               <option value="time">Estimated Duration</option>
             </select>
 
-            <button
-              type="button"
-              onClick={fetchServices}
-              disabled={loading || reduxLoading}
-              className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-cyan-300 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
-              title="Refresh services from handleGetallService"
-            >
-              <span className={loading || reduxLoading ? 'animate-spin' : ''}>🔄</span>
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
+     
           </div>
         </div>
 
@@ -350,7 +325,7 @@ export default function AllServices() {
         {/* ══════════════════════════════════════════════════════════
             SERVICES GRID (Purely from handleGetallService)
         ══════════════════════════════════════════════════════════ */}
-        {(loading || reduxLoading) && (
+        {reduxLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
               <div
@@ -368,7 +343,7 @@ export default function AllServices() {
           </div>
         )}
 
-        {!loading && !reduxLoading && filteredServices.length === 0 && (
+        {!reduxLoading && filteredServices.length === 0 && (
           <div className="py-16 px-4 text-center bg-[#0B1528]/70 border border-white/10 rounded-3xl backdrop-blur-xl max-w-lg mx-auto">
             <div className="w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-3xl mx-auto mb-4 text-orange-400 shadow-[0_0_20px_rgba(255,107,53,0.3)]">
               🛠️
@@ -395,7 +370,7 @@ export default function AllServices() {
           </div>
         )}
 
-        {!loading && !reduxLoading && filteredServices.length > 0 && (
+        {!reduxLoading && filteredServices.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {filteredServices.map((service) => {
               // Extract strictly according to schema:
@@ -670,3 +645,4 @@ export default function AllServices() {
     </div>
   );
 }
+

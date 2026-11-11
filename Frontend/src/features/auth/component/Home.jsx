@@ -565,7 +565,7 @@ StitchMCP/generate_screen_from_text
                 {['About Us', 'Join as Plumber', 'Careers', 'Blog', 'Contact'].map(item => (
                   <li key={item}>
                     <Link
-                      onClick={() => item === 'Join as Plumber' ? navigate('/technician-register') : null}
+                      onClick={() => item === 'Join as Plumber' ? navigate('/technician/technician-register') : null}
                       className="bg-transparent border-0 text-white/45 text-sm cursor-pointer p-0 transition-colors duration-200 hover:text-cyan-400"
                     >
                       {item}

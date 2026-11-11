@@ -7,17 +7,20 @@ import Resendmail from "../features/auth/component/Resendmail.jsx";
 import Forgetmail from "../features/auth/component/Forgetmail.jsx";
 import ForgetPassword from "../features/auth/component/ForgetPassword.jsx";
 import View from "../features/auth/component/View.jsx";
-import CustomerProfile from "../features/auth/component/CustomerProfile.jsx";
+import CustomerProfile from "../features/order/components/CustomerProfile.jsx";
 import TechnicianRegister from "../features/technician/pages/TechnicianRegister.jsx";
 import TechnicianDashboard from "../features/technician/pages/TechnicianDashboard.jsx";
 import TechnicianProfile from "../features/technician/component/Technician-Profile.jsx";
 import TechnicianNotification from "../features/technician/component/TechnicianNotification.jsx";
+import TechnicianTracking from "../features/technician/pages/TechnicianTracking.jsx";
 import NotFound from "../features/auth/component/NotFound.jsx";
 import Protected from "../features/auth/component/Protected.jsx";
 import AllServices from "../features/order/pages/AllServices.jsx";
 import createService from "../features/admin/components/createService.jsx";
 import AdminDashboard from "../features/admin/pages/admin_Dashboard.jsx";
+import Customer_tracking from "../features/socketio/pages/customer_tracking.jsx";
 import AppLayout from "./AppLayout.jsx";
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -25,7 +28,6 @@ export const router = createBrowserRouter([
   },
   {
     path: "/customer",
-
     children: [
       {
         index: true,
@@ -35,7 +37,6 @@ export const router = createBrowserRouter([
         path: "/customer/",
         element: <Home />,
       },
-
       {
         path: "/customer/allServices",
         element: <AllServices />,
@@ -64,9 +65,7 @@ export const router = createBrowserRouter([
         path: "/customer/forget-password",
         element: <ForgetPassword />,
       },
-
       {
-        /* Dynamic route — /view/apple, /view/dell, /view/hp, /view/lenovo */
         path: "/customer/service/:serviceId",
         element: <View />,
       },
@@ -78,28 +77,65 @@ export const router = createBrowserRouter([
           </Protected>
         ),
       },
+      {
+        path: "/customer/customer_tracking/:OrderId",
+        element: (
+          <Protected>
+            <Customer_tracking />
+          </Protected>
+        ),
+      },
     ],
   },
-
   {
-    path: "/Technician-Dashboard",
-    element: <Protected>
-      <TechnicianDashboard/>
-    </Protected>,
+    path: "/technician",
+    children: [
+      {
+        path: "/technician/Technician-Dashboard",
+        element: (
+          <Protected>
+            <TechnicianDashboard />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/technician-register",
+        element: <TechnicianRegister />,
+      },
+      {
+        path: "/technician/Technician-Profile",
+        element: (
+          <Protected>
+            <TechnicianProfile />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/TechnicianNotification",
+        element: (
+          <Protected>
+            <TechnicianNotification />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/tracking/:OrderId",
+        element: (
+          <Protected>
+            <TechnicianTracking />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/technician_tracking/:OrderId",
+        element: (
+          <Protected>
+            <TechnicianTracking />
+          </Protected>
+        ),
+      },
+    ],
   },
-  {
-    path: "/technician-register",
-    element: <TechnicianRegister />,
-  },
-  {
-    path: "/Technician-Profile",
-    element: <TechnicianProfile />,
-  },
-  {
-    path: "/TechnicianNotification",
-    element: <TechnicianNotification />,
-  },
-  
   {
     path: "/admin/admin-Dashboard",
     element: (
@@ -108,7 +144,6 @@ export const router = createBrowserRouter([
       </Protected>
     ),
   },
-  
   {
     path: "*",
     element: <NotFound />,

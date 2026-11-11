@@ -24,6 +24,11 @@ export async function GetOrderDetail() {
 }
 export async function GetallServices(){
   const response = await api.get("/GetallServices");
-  console.log(response);
+ 
   return response.data || response;
+}
+
+export async function GetIdS({OrderId}){
+     const response=await api.get(`/${OrderId}`)
+     return response.data
 }

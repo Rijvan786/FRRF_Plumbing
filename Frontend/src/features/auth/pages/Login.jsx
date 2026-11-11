@@ -1,9 +1,10 @@
   import { useState, useEffect } from 'react';
-  import { Link, useNavigate } from 'react-router-dom';
+  import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
   import { useSelector } from 'react-redux';
   import { useAuth } from '../hook/useAuth';
 import Navbar from "../../../App/Navbar.jsx"
   import { useToast } from '../component/ToastPopup';
+import { useOrder } from '../../order/hook/useOrder.jsx';
 
   /* ── Google Fonts (matching Home.jsx) ─────────────────────────── */
   const useGoogleFonts = () => {
@@ -59,9 +60,16 @@ import Navbar from "../../../App/Navbar.jsx"
     
     const authError = useSelector((state) => state.auth?.Error);
     const authLoading = useSelector((state) => state.auth?.Loading);
-    const { handleLogin } = useAuth();
-    const { showToast } = useToast();
+     const reduxItem = useSelector((state) => state.order?.item || [])
+   const [searchParams] = useSearchParams();
 
+    // 🚀 3. 'get' मेथड का इस्तेमाल करके orderId निकालें
+    const OrderId = searchParams.get('OrderId') 
+
+    const { handleLogin } = useAuth();
+
+    const { showToast } = useToast();
+    
     useEffect(() => {
       const t = setTimeout(() => setVisible(true), 80);
       return () => clearTimeout(t);
@@ -82,13 +90,36 @@ import Navbar from "../../../App/Navbar.jsx"
       setErrorMsg('');
       setLoading(true);
       try {
-        const res = await handleLogin({
+        let res
+    if(OrderId){
+        
+        res= await handleLogin({
           FullName: identifier.trim(),
           email: identifier.trim(),
           contact: identifier.trim(),
           password,
+          OrderId:OrderId 
+        })
+          const loggedName = res?.user?.FullName || identifier.trim();
+         showToast({
+          type: 'success',
+          message: `Login successful! Logged in as ${loggedName}`,
+          duration: 4500,
         });
+        navigate("/customer/profile")
+    } 
+    
+    else{
+         
+        res= await handleLogin({
+          FullName: identifier.trim(),
+          email: identifier.trim(),
+          contact: identifier.trim(),
+          password,
+        
+        })
 
+        
         const loggedName = res?.user?.FullName || identifier.trim();
 
         // Show user-friendly toast popup matching design in user image
@@ -98,27 +129,27 @@ import Navbar from "../../../App/Navbar.jsx"
           duration: 4500,
         });
 
-  
+       
         if(res?.user.role=="customer"){
           setCooldown(60); // 1 minute cooldown
-        setTimeout(() => {
-          if (window.location.pathname === '/customer' || window.location.pathname === '/customer/') {
-            const el = document.getElementById('Services') || document.getElementById('services');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          } else {
+        
             navigate('/customer#services');
-          }
-        }, 1200);
+          
+        
         }
         else if(res?.user.role=="admin"){
           navigate("/admin/Admin-Dashboard")
         }
         else if(res?.user.role=="technician"){
-          navigate("/Technician-Dashboard")
+          navigate("/technician/Technician-Dashboard")
         }
+    }
+      
+      
       } catch (err) {
         const msg = err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.';
         setErrorMsg(msg);
+        console.log(err);
         showToast({
           type: 'error',
           message: msg,

@@ -8,14 +8,16 @@ export  function useAuth(){
 
     const dispatch=useDispatch()
 
-const handleRegister=async({FullName,email,contact, isVerifiedTech,experienceYears, role,password})=>{
+const handleRegister=async({FullName,email,contact, isVerifiedTech,experienceYears,
+     role,password,OrderId,AddressId})=>{
 
 
     try {
 
         dispatch(setLoading(true))
 
-        const data=await Register({FullName,email,contact,isVerifiedTech,experienceYears,role,password})
+        const data=await Register({FullName,email,contact,isVerifiedTech,
+            experienceYears,role,password,OrderId,AddressId})
         console.log(data);
         dispatch(setUser(data.user))
 
@@ -33,14 +35,14 @@ const handleRegister=async({FullName,email,contact, isVerifiedTech,experienceYea
 }
 
 
-const handleLogin=async({FullName,email,password})=>{
+const handleLogin=async({FullName,email,password,OrderId,AddressId})=>{
 
 
     try {
 
         dispatch(setLoading(true))
 
-        const data=await Login({FullName,email,password})
+        const data=await Login({FullName,email,password,OrderId,AddressId})
         console.log(data);
         dispatch(setUser(data.user))
         return data;

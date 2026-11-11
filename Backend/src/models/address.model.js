@@ -5,11 +5,11 @@ export const AddressSchema = mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",  
-      required: true,
+      default:null
     },
     label: {
       type: String,
-      enum: ["Home", "office", "Other"],
+      enum: ["Home", "office", "Shop", "apartment","Other"],
       default: "Home",
     },
     street: { type: String, required: true },

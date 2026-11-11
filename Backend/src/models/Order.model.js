@@ -8,7 +8,7 @@ const OrderSchema=mongoose.Schema({
     userId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"user",
-        required:true
+        default:null
     },
     technicianId:{
         type:mongoose.Schema.Types.ObjectId,
@@ -39,7 +39,7 @@ const OrderSchema=mongoose.Schema({
  // 5. बुकिंग का स्टेटस (Live Tracking के लिए)
     status: {
       type: String,
-      enum: ["Pending", "Assigned", "On-the-way", "Working", "Completed", "Cancelled"],
+      enum: ["Pending", "Assigned", "On-the-way", "Working", "Completed", "Cancelled","Accepted"],
       default: "Pending"
     },
     scheduleDate:{type:Date,required:true},

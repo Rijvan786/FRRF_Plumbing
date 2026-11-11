@@ -7,14 +7,14 @@ const Protected = ({children}) => {
 const {handleGetME} =useAuth()
 const navigate=useNavigate()
 const user=useSelector(state=>state.auth.User)
-console.log(user);
+
     useEffect(()=>{
        async function fetch(){
 
         const User=await handleGetME()
 
        if(User?.role ==="technician"){
-        navigate("/technician-Dashboard")
+        navigate("/technician/TechnicianNotification")
         return;
        }
 

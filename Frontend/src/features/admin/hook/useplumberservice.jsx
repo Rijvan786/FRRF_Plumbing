@@ -84,8 +84,13 @@ export function usepulmberService() {
 
   const handleGetTodayTechnicians = async () => {
     try {
+      dispatch(setLoadingState(true));
       const data = await GetTodayRegisterTechnicians();
-      const list = data?.data || (Array.isArray(data) ? data : []);
+      const list =
+        data?.data ||
+        data?.todaysPlumbers ||
+        data?.technicians ||
+        (Array.isArray(data) ? data : []);
 
       // Store fetched technicians into Redux state
       if (Array.isArray(list)) {
@@ -96,6 +101,8 @@ export function usepulmberService() {
     } catch (error) {
       console.error("Error in handleGetTodayTechnicians:", error);
       return null;
+    } finally {
+      dispatch(setLoadingState(false));
     }
   };
 

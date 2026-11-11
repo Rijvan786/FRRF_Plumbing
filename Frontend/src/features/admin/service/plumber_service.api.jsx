@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL =  "https://frpf-plumbing.onrender.com/api/admin" ;
+const API_URL = "https://frpf-plumbing.onrender.com/api/admin";
 const api=axios.create({
     baseURL:API_URL,
     withCredentials:true

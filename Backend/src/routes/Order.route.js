@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { CreateOrderController,GetAllServicesController,GetOrderDetailController } 
+import { CreateOrderController,GetAllServicesController,GetIdController,GetOrderDetailController } 
 from "../controller/Order.controller.js";
 import { AuthenticateUser } from "../middleware/auth.middleware.js";
 import multer from "multer";
@@ -11,15 +11,16 @@ const upload=multer({storage:multer.memoryStorage(),
     limits:5*1024*1024
 })
 
-router.post("/CreateOrder",AuthenticateUser,upload.array("Images",7),CreateOrderValidation,CreateOrderController)
+router.post("/CreateOrder",upload.array("Images",7),CreateOrderValidation,CreateOrderController)
 
 
 router.get("/GetOrderDetail",AuthenticateUser,GetOrderDetailController)
 
 
+
 router.get("/GetallServices",GetAllServicesController)
 
-
+router.get("/:OrderId",GetIdController)
 
 
 

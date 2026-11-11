@@ -43,6 +43,308 @@ const EyeIcon = ({ open }) =>
     </svg>
   );
 
+/* ═══════════════════════════════════════════════════════
+   SHARED POPUP STYLES (injected once)
+═══════════════════════════════════════════════════════ */
+const POPUP_STYLES = `
+  @keyframes slideUp {
+    from { opacity:0; transform:translateY(80px) scale(0.93); }
+    to   { opacity:1; transform:translateY(0)    scale(1);    }
+  }
+  @keyframes centerPop {
+    from { opacity:0; transform:scale(0.88) translateY(16px); }
+    to   { opacity:1; transform:scale(1)    translateY(0);    }
+  }
+  @keyframes popIn {
+    from { opacity:0; transform:scale(0.4); }
+    to   { opacity:1; transform:scale(1);   }
+  }
+  @keyframes drawCheck {
+    to { stroke-dashoffset:0; }
+  }
+  @keyframes shakeIn {
+    0%   { opacity:0; transform:translateY(80px) scale(0.93); }
+    70%  { transform:translateY(-6px) scale(1.015); }
+    100% { opacity:1; transform:translateY(0) scale(1); }
+  }
+  @keyframes auraGlow {
+    0%,100% { opacity:0.5; transform:scale(1); }
+    50%     { opacity:1;   transform:scale(1.08); }
+  }
+  /* Mobile: slide up from bottom  |  sm+: pop from center */
+  .popup-card-success { animation: slideUp 0.42s cubic-bezier(0.16,1,0.3,1) both; }
+  .popup-card-error   { animation: shakeIn 0.42s cubic-bezier(0.16,1,0.3,1) both; }
+  @media (min-width:640px) {
+    .popup-card-success { animation: centerPop 0.38s cubic-bezier(0.16,1,0.3,1) both; }
+    .popup-card-error   { animation: centerPop 0.38s cubic-bezier(0.16,1,0.3,1) both; }
+  }
+`;
+
+/* ── Shared close button ── */
+const CloseBtn = ({ onClick }) => (
+  <button
+    onClick={onClick}
+    className="absolute top-3 right-3 sm:top-4 sm:right-4 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all text-base sm:text-lg leading-none"
+    aria-label="Close"
+  >✕</button>
+);
+
+/* ═══════════════════════════════════════════════════════
+   SUCCESS POPUP — fully responsive
+   Mobile  : bottom-sheet slide-up, full-width card
+   Tablet+ : centered modal, max-w-md
+   Desktop : centered modal, max-w-lg, larger padding
+═══════════════════════════════════════════════════════ */
+function SuccessPopup({ name, onClose, navigate }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center
+                 px-3 pb-3 sm:px-6 sm:pb-0 md:px-8"
+      style={{ background: 'rgba(7,14,26,0.87)', backdropFilter: 'blur(16px)' }}
+      onClick={onClose}
+    >
+      <style>{POPUP_STYLES}</style>
+
+      {/* Ambient glows — hidden on tiny screens for perf */}
+      <div className="hidden sm:block absolute top-1/4 left-1/4 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="hidden sm:block absolute bottom-1/4 right-1/4 w-72 h-72 bg-orange-500/8  rounded-full blur-3xl pointer-events-none" />
+
+      {/* Gradient border wrapper */}
+      <div
+        className="popup-card-success relative w-full max-w-sm sm:max-w-md lg:max-w-lg rounded-2xl sm:rounded-3xl p-[1.5px]"
+        style={{
+          background: 'linear-gradient(135deg,#34d399 0%,#10b981 45%,#f97316 100%)',
+          boxShadow: '0 28px 72px rgba(3,7,14,0.92), 0 0 56px rgba(16,185,129,0.22)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Inner card */}
+        <div
+          className="relative rounded-2xl sm:rounded-3xl
+                     p-5 sm:p-7 lg:p-8"
+          style={{ background: 'rgba(10,18,34,0.99)' }}
+        >
+          <CloseBtn onClick={onClose} />
+
+          {/* Hero aura + checkmark */}
+          <div className="flex justify-center mb-4 sm:mb-6">
+            <div
+              className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center"
+              style={{
+                background: 'radial-gradient(circle,rgba(16,185,129,0.28) 0%,rgba(16,185,129,0.04) 70%)',
+                boxShadow: '0 0 44px rgba(16,185,129,0.45), 0 0 90px rgba(16,185,129,0.12)',
+                animation: 'popIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s both, auraGlow 2.4s ease-in-out 0.8s infinite',
+              }}
+            >
+              <svg
+                className="w-9 h-9 sm:w-11 sm:h-11 lg:w-12 lg:h-12"
+                viewBox="0 0 48 48" fill="none"
+              >
+                <circle cx="24" cy="24" r="22" stroke="#10b981" strokeWidth="1.5" strokeOpacity="0.4"/>
+                <path
+                  d="M13 25l8 8 14-16"
+                  stroke="#10b981" strokeWidth="3"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  style={{ strokeDasharray:36, strokeDashoffset:36, animation:'drawCheck 0.55s ease 0.5s both' }}
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Copy */}
+          <h2 className="text-center font-black text-xl sm:text-2xl lg:text-3xl text-white mb-1 tracking-tight"
+              style={{ fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+            Welcome aboard! 🎉
+          </h2>
+          <p className="text-center text-xs sm:text-sm font-bold mb-4 sm:mb-5 uppercase tracking-widest"
+             style={{ color:'#10b981', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+            Registration Successful
+          </p>
+
+          {/* Body message */}
+          <div className="rounded-xl sm:rounded-2xl px-4 py-3 sm:py-3.5 mb-4 sm:mb-5 text-center text-sm sm:text-base leading-relaxed"
+               style={{ background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.2)' }}>
+            <span style={{ color:'rgba(240,246,252,0.85)', fontFamily:'Inter,sans-serif' }}>
+              {name
+                ? <><span style={{ color:'#10b981', fontWeight:700 }}>{name}</span>, you're </>
+                : "You're "}
+              now a verified technician partner on{' '}
+              <span style={{ color:'#FF6B00', fontWeight:700 }}>FRRF Plumbing</span>!
+              Start accepting jobs and earning right away.
+            </span>
+          </div>
+
+          {/* Perks — 3 col on all sizes */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+            {[['⚡','Instant Jobs'],['💰','Fast Payout'],['🛡️','Insured Work']].map(([ic,lb]) => (
+              <div key={lb}
+                   className="rounded-xl sm:rounded-2xl py-2.5 sm:py-3 text-center"
+                   style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)' }}>
+                <div className="text-base sm:text-xl mb-0.5">{ic}</div>
+                <div className="text-[10px] sm:text-xs font-bold"
+                     style={{ color:'rgba(240,246,252,0.5)', fontFamily:'Plus Jakarta Sans,sans-serif' }}>{lb}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={() => { onClose(); navigate('/technician/Technician-Dashboard'); }}
+            className="w-full py-3.5 sm:py-4 rounded-full font-bold text-white text-sm sm:text-base
+                       transition-all active:scale-[0.98] hover:-translate-y-0.5"
+            style={{
+              background:'linear-gradient(90deg,#10b981,#059669)',
+              boxShadow:'0 4px 24px rgba(16,185,129,0.4)',
+              fontFamily:'Plus Jakarta Sans,sans-serif',
+            }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow='0 8px 32px rgba(16,185,129,0.6)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow='0 4px 24px rgba(16,185,129,0.4)'}
+          >
+            Go to Dashboard →
+          </button>
+
+          <p className="text-center text-xs mt-3 sm:mt-4"
+             style={{ color:'#41536B', fontFamily:'Inter,sans-serif' }}>
+            Check your email for onboarding instructions
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   ERROR POPUP — fully responsive
+═══════════════════════════════════════════════════════ */
+function ErrorPopup({ message, onClose, onRetry }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center
+                 px-3 pb-3 sm:px-6 sm:pb-0 md:px-8"
+      style={{ background:'rgba(7,14,26,0.87)', backdropFilter:'blur(16px)' }}
+      onClick={onClose}
+    >
+      <style>{POPUP_STYLES}</style>
+
+      <div className="hidden sm:block absolute top-1/3 right-1/4 w-72 h-72 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Gradient border wrapper */}
+      <div
+        className="popup-card-error relative w-full max-w-sm sm:max-w-md lg:max-w-lg rounded-2xl sm:rounded-3xl p-[1.5px]"
+        style={{
+          background:'linear-gradient(135deg,#f43f5e 0%,#e11d48 50%,#f97316 100%)',
+          boxShadow:'0 28px 72px rgba(3,7,14,0.92), 0 0 48px rgba(244,63,94,0.2)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          className="relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 lg:p-8"
+          style={{ background:'rgba(10,18,34,0.99)' }}
+        >
+          <CloseBtn onClick={onClose} />
+
+          {/* Warning icon */}
+          <div className="flex justify-center mb-4 sm:mb-5">
+            <div
+              className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center"
+              style={{
+                background:'radial-gradient(circle,rgba(244,63,94,0.22) 0%,rgba(244,63,94,0.03) 70%)',
+                boxShadow:'0 0 40px rgba(244,63,94,0.38)',
+                animation:'popIn 0.45s cubic-bezier(0.16,1,0.3,1) 0.1s both',
+                fontSize:'clamp(1.75rem,5vw,2.5rem)',
+              }}
+            >⚠️</div>
+          </div>
+
+          {/* Copy */}
+          <h2 className="text-center font-black text-xl sm:text-2xl lg:text-3xl text-white mb-1 tracking-tight"
+              style={{ fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+            Registration Failed
+          </h2>
+          <p className="text-center text-[10px] sm:text-xs font-bold mb-4 uppercase tracking-widest"
+             style={{ color:'#f43f5e', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+            Please check your details
+          </p>
+
+          {/* Error message */}
+          <div className="rounded-xl sm:rounded-2xl px-4 py-3 sm:py-3.5 mb-4 sm:mb-5"
+               style={{ background:'rgba(244,63,94,0.08)', border:'1px solid rgba(244,63,94,0.26)' }}>
+            <div className="flex items-start gap-2.5">
+              <span className="text-rose-400 mt-0.5 shrink-0">⛔</span>
+              <p className="text-sm sm:text-base leading-relaxed"
+                 style={{ color:'rgba(240,246,252,0.82)', fontFamily:'Inter,sans-serif' }}>
+                {message}
+              </p>
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div className="rounded-xl sm:rounded-2xl px-4 py-3 sm:py-3.5 mb-4 sm:mb-6"
+               style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider mb-2"
+               style={{ color:'rgba(240,246,252,0.32)', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+              Quick Checklist
+            </p>
+            {[
+              'Email must be valid and not already registered',
+              'Password: 8+ chars, 1 number, 1 special symbol',
+              'All required fields (*) must be filled',
+              'Accept the Partner Policy checkbox',
+            ].map(tip => (
+              <div key={tip} className="flex items-start gap-2 mt-1.5">
+                <span className="text-rose-400 text-xs shrink-0 mt-0.5">•</span>
+                <span className="text-xs sm:text-sm"
+                      style={{ color:'rgba(240,246,252,0.52)', fontFamily:'Inter,sans-serif' }}>
+                  {tip}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-2.5 sm:gap-3">
+            <button
+              onClick={() => { onClose(); onRetry?.(); }}
+              className="flex-1 py-3.5 sm:py-4 rounded-full font-bold text-white text-sm sm:text-base
+                         transition-all active:scale-[0.98] hover:-translate-y-0.5"
+              style={{
+                background:'linear-gradient(90deg,#f43f5e,#e11d48)',
+                boxShadow:'0 4px 20px rgba(244,63,94,0.38)',
+                fontFamily:'Plus Jakarta Sans,sans-serif',
+              }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow='0 8px 28px rgba(244,63,94,0.55)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow='0 4px 20px rgba(244,63,94,0.38)'}
+            >
+              Try Again
+            </button>
+            <button
+              onClick={onClose}
+              className="py-3.5 sm:py-4 px-4 sm:px-6 rounded-full font-semibold text-sm sm:text-base
+                         transition-all hover:bg-white/8"
+              style={{
+                background:'rgba(255,255,255,0.05)',
+                border:'1px solid rgba(255,255,255,0.13)',
+                color:'rgba(240,246,252,0.62)',
+                fontFamily:'Plus Jakarta Sans,sans-serif',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <p className="text-center text-xs mt-3 sm:mt-4"
+             style={{ color:'#41536B', fontFamily:'Inter,sans-serif' }}>
+            Need help?{' '}
+            <span className="cursor-pointer hover:underline" style={{ color:'#00F2FE' }}>
+              Contact support
+            </span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TECHNICIAN_ROLES = [
   'Senior Master Plumber',
   'CPVC & PVC Pipeline Specialist',
@@ -71,13 +373,15 @@ export default function TechnicianRegister() {
     longitude: '',
   });
 
-  const [showPw, setShowPw]       = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [cooldown, setCooldown]   = useState(0); // 1-minute countdown
-  const [locating, setLocating]   = useState(false);
-  const [agree, setAgree]         = useState(false);
-  const [visible, setVisible]     = useState(false);
-  const [errorMsg, setErrorMsg]   = useState('');
+  const [showPw, setShowPw]           = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [cooldown, setCooldown]       = useState(0);
+  const [locating, setLocating]       = useState(false);
+  const [agree, setAgree]             = useState(false);
+  const [visible, setVisible]         = useState(false);
+  const [errorMsg, setErrorMsg]       = useState('');
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showErrorPopup,   setShowErrorPopup]   = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -128,14 +432,17 @@ export default function TechnicianRegister() {
     e.preventDefault();
     if (loading || cooldown > 0) return;
     setErrorMsg('');
+    setShowErrorPopup(false);
 
     if (form.password.length < 8 || !/(?=.*\d)/.test(form.password) || !/(?=.*[@$!%*?&#])/.test(form.password)) {
       setErrorMsg('Password must be at least 8 characters and include at least one number and one special character (@$!%*?&#).');
+      setShowErrorPopup(true);
       return;
     }
 
     if (!agree) {
       setErrorMsg('Please agree to the technician partner policy to proceed.');
+      setShowErrorPopup(true);
       return;
     }
 
@@ -155,8 +462,8 @@ export default function TechnicianRegister() {
         latitude: Number(form.latitude) || 0,
       });
 
-      setCooldown(60); // 1-minute active cooldown
-      navigate('/Technician-Dashboard');
+      setCooldown(60);
+      setShowSuccessPopup(true); // ✅ show success popup
     } catch (err) {
       console.error('Technician registration error:', err);
       const apiMsg = err?.response?.data?.message;
@@ -167,6 +474,7 @@ export default function TechnicianRegister() {
       } else {
         setErrorMsg(err?.message || 'Registration failed. Please verify your details.');
       }
+      setShowErrorPopup(true); // ❌ show error popup
     } finally {
       setLoading(false);
     }
@@ -183,6 +491,23 @@ export default function TechnicianRegister() {
         backgroundPosition: 'center',
       }}
     >
+      {/* ── SUCCESS POPUP ── */}
+      {showSuccessPopup && (
+        <SuccessPopup
+          name={form.fullName}
+          onClose={() => setShowSuccessPopup(false)}
+          navigate={navigate}
+        />
+      )}
+
+      {/* ── ERROR POPUP ── */}
+      {showErrorPopup && errorMsg && (
+        <ErrorPopup
+          message={errorMsg}
+          onClose={() => setShowErrorPopup(false)}
+          onRetry={() => setShowErrorPopup(false)}
+        />
+      )}
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-[#070E1A]/92 backdrop-blur-sm pointer-events-none" />
 

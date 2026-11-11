@@ -15,6 +15,7 @@ import {
 import bcrypt from "bcryptjs";
 import BlackListModel from "../models/Blacklist.model.js";
 import AddressModel from "../models/address.model.js";
+import OrderModel from "../models/Order.model.js";
 
 // ──────────────────────────────────────────────
 //  HELPER : Sign JWT & send cookie + JSON
@@ -65,16 +66,17 @@ async function SendTokenResponse(user, res, message) {
 //  REGISTER CONTROLLER
 //  Sends role-specific welcome email on sign-up
 // ──────────────────────────────────────────────
-export async function RegisterController(req, res) {  
+export async function RegisterController(req, res) {    
   try {
     const {
       FullName,
       email,
       contact,
       role,
-      password,
+      password,OrderId,
       label,street, city,pin_code ,longitude,latitude
     } = req.body;
+  
 console.log(contact);
 
     console.log("📥 Register attempt:", { FullName, email, role });
@@ -95,7 +97,7 @@ console.log(contact);
 
         if (isExist) {
             return res.status(400).json(
-              {message: `User ${isExist.FullName=== FullName ? "Username  is already registered" : isExist.email===email?"This  Email is already registered": isExist.contact===contact?"This contact is all ready Register":"User is all ready registered"}`})
+              {message: `User ${isExist.FullName === FullName ? "Username  is already registered" : isExist.email===  email?"This  Email is already registered": isExist.contact===contact?"This contact is all ready Register":"  is all ready registered"}`})
         }
     // ── Create user in DB ──
     const user = await UserModel.create({
@@ -107,6 +109,7 @@ console.log(contact);
 
       
     });
+   
   
     
 
@@ -155,7 +158,22 @@ console.log(contact);
     
 
     console.log(`✅ Welcome email sent to: ${email} (role: ${role})`);
+if(OrderId){
+     
+    const OrderModelEditUserid=await OrderModel.findOneAndUpdate({ 
+      _id:OrderId
+    },{ 
+            $set: { 
+                userId: user._id, 
+                "address.userId": user._id // 👈 Dot notation: सिर्फ address के अंदर का userId बदलेगा, बाकी एड्रेस सेफ रहेगा
+            } 
+        }, // 2nd Argument: Update data
+        { returnDocument:'after' })
 
+
+   
+
+}
     // ── Respond with token cookie ──
     await SendTokenResponse(
       user,
@@ -525,7 +543,7 @@ function verificationPage(type, name = "User", role = "customer") {
 
 export async function LoginController(req, res) {
   try {
-    const { email, FullName, password } = req.body;
+    const { email, FullName, password,OrderId } = req.body;
     console.log(email,FullName, password);
     // ── Build query by email or FullName ──
     // ── Find user with password included ──
@@ -614,6 +632,22 @@ export async function LoginController(req, res) {
     // });
 
     // ── Send JSON Response ──
+if(OrderId){
+     
+    const OrderModelEditUserid=await OrderModel.findOneAndUpdate({ 
+      _id:OrderId
+    },{ 
+            $set: { 
+                userId: user._id, 
+                "address.userId": user._id // 👈 Dot notation: सिर्फ address के अंदर का userId बदलेगा, बाकी एड्रेस सेफ रहेगा
+            } 
+        }, // 2nd Argument: Update data
+        { returnDocument:'after' })
+
+
+   
+
+}
     return await SendTokenResponse(
       user,
       res,

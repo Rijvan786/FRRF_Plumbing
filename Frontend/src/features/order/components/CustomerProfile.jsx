@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../hook/useAuth';
-import Navbar from "../../../App/Navbar.jsx"
-import { useOrder } from '../../order/hook/useOrder.jsx';
+import { useNavigate, Link, useParams } from 'react-router-dom';
+import { useAuth } from '../../auth/hook/useAuth.jsx';
+import { GetMe } from '../../auth/service/auth.api.jsx';
+import { setUser } from '../../auth/state/auth.slice.jsx';
+import Navbar from "../../../App/Navbar.jsx";
+import { useOrder } from '../hook/useOrder.jsx';
+import { useListenPlumber } from '../hook/useListenPlumber.jsx';
 
 /* ── Inline Feather/Lucide Icon Components (Zero-Dependency & Pixel-Crisp) ── */
 const Calendar = ({ size = 18, className = '' }) => (
@@ -91,138 +94,170 @@ const Sparkles = ({ size = 18, className = '' }) => (
   </svg>
 );
 
-/* ── Comprehensive Stitch Design System Bookings (7 Items) ── */
-const STITCH_BOOKINGS = [
-  {
-    id: 'FRRF-9842',
-    service: 'CPVC High-Pressure Pipe Burst & Valve Repair',
-    category: 'Emergency Dispatch',
-    icon: '⚡',
-    status: 'in-progress',
-    statusLabel: 'Technician En Route (ETA 14 Mins)',
-    date: 'Today, 31 Oct 2026',
-    timeSlot: '11:00 AM – 12:30 PM',
-    price: 649,
-    address: 'Flat 402, Royal Palms, Palasia, Indore',
-    technician: {
-      name: 'Marcus Vance',
-      badge: 'Master Plumber (Lic. #PL-88421)',
-      rating: '4.9 ★',
-      eta: '14 Mins Away (2.1 km GPS locked)',
-      phone: '+91 98260 99881',
-    },
-    telemetry: 'Water Pressure: 4.2 Bar • Acoustic Scan: Active',
-    warranty: '90-Day Free Service Guarantee',
-  },
-  {
-    id: 'FRRF-8921',
-    service: 'Kitchen Sink CPVC Drainage & Blockage De-clogging',
-    category: 'Drainage & Clog',
-    icon: '🔧',
-    status: 'completed',
-    statusLabel: 'Completed & Verified',
-    date: '12 May 2026',
-    timeSlot: '10:30 AM',
-    price: 499,
-    address: 'Flat 402, Royal Palms, Palasia, Indore',
-    technician: {
-      name: 'Sunil Parmar',
-      badge: 'Certified Technician',
-      rating: '4.8 ★',
-    },
-    warranty: 'Warranty Active (58 Days Remaining)',
-  },
-  {
-    id: 'FRRF-7432',
-    service: 'Overhead Tank Booster Pump & CPVC Manifold Installation',
-    category: 'Smart Installation',
-    icon: '⚙️',
-    status: 'completed',
-    statusLabel: 'Completed & Verified',
-    date: '04 Mar 2026',
-    timeSlot: '02:00 PM',
-    price: 1299,
-    address: 'Suite 305, Corporate Heights, Scheme 54, Indore',
-    technician: {
-      name: 'Amit Patel',
-      badge: 'Senior Motor Specialist',
-      rating: '5.0 ★',
-    },
-    warranty: 'Protected under 90-Day Guarantee',
-  },
-  {
-    id: 'FRRF-6190',
-    service: 'Bathroom Mixer Tap & CPVC Riser Line Fitting',
-    category: 'Sanitary Fittings',
-    icon: '🚰',
-    status: 'completed',
-    statusLabel: 'Completed & Verified',
-    date: '18 Jan 2026',
-    timeSlot: '03:15 PM',
-    price: 899,
-    address: 'Flat 402, Royal Palms, Palasia, Indore',
-    technician: {
-      name: 'Marcus Vance',
-      badge: 'Master Plumber',
-      rating: '4.9 ★',
-    },
-    warranty: 'Warranty Archived',
-  },
-  {
-    id: 'FRRF-5401',
-    service: 'Concealed Wall Moisture Scan & Leak Pinpointing',
-    category: 'Diagnostic Telemetry',
-    icon: '🔍',
-    status: 'completed',
-    statusLabel: 'Completed & Verified',
-    date: '10 Nov 2025',
-    timeSlot: '11:45 AM',
-    price: 799,
-    address: 'Flat 402, Royal Palms, Palasia, Indore',
-    technician: {
-      name: 'Rameshwar Verma',
-      badge: 'Acoustic Diagnostic Tech',
-      rating: '4.9 ★',
-    },
-    warranty: 'Warranty Archived',
-  },
-  {
-    id: 'FRRF-4882',
-    service: 'Toilet Flush Tank Float Valve & Jet Spray Overhaul',
-    category: 'Sanitary Fittings',
-    icon: '🚽',
-    status: 'completed',
-    statusLabel: 'Completed & Verified',
-    date: '28 Aug 2025',
-    timeSlot: '04:30 PM',
-    price: 349,
-    address: 'Suite 305, Corporate Heights, Scheme 54, Indore',
-    technician: {
-      name: 'Sunil Parmar',
-      badge: 'Certified Technician',
-      rating: '4.8 ★',
-    },
-    warranty: 'Warranty Archived',
-  },
-  {
-    id: 'FRRF-3910',
-    service: 'Whole House Water Hardness & TDS Inspection',
-    category: 'Preventive Audit',
-    icon: '🛡️',
-    status: 'completed',
-    statusLabel: 'Completed & Verified',
-    date: '14 May 2025',
-    timeSlot: '09:30 AM',
-    price: 599,
-    address: 'Flat 402, Royal Palms, Palasia, Indore',
-    technician: {
-      name: 'Amit Patel',
-      badge: 'Senior Motor Specialist',
-      rating: '5.0 ★',
-    },
-    warranty: 'Warranty Archived',
-  },
-];
+/* ── Category Icon Mapper ── */
+const mapCategoryIcon = (category = '') => {
+  const cat = String(category || '').toLowerCase();
+  if (cat.includes('leak')) return '💧';
+  if (cat.includes('block')) return '🔧';
+  if (cat.includes('install')) return '⚙️';
+  if (cat.includes('maintain') || cat.includes('tank')) return '🛡️';
+  if (cat.includes('inspect') || cat.includes('scan')) return '🔍';
+  if (cat.includes('sanitary') || cat.includes('tap') || cat.includes('toilet') || cat.includes('valve')) return '🚰';
+  if (cat.includes('sos') || cat.includes('emergency')) return '⚡';
+  if (cat.includes('setup') || cat.includes('renov')) return '🏗️';
+  return '🔧';
+};
+
+/* ── Order Status Styler & Normalizer ── */
+const mapStatusDetails = (status = '') => {
+  const s = String(status || '').toLowerCase();
+  if (s === 'pending') {
+    return {
+      statusKey: 'pending',
+      statusLabel: 'Pending • Dispatching Nearby Plumber',
+      badgeBg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      dotColor: 'bg-amber-400',
+      isActive: true,
+      progressPercent: '25%',
+    };
+  }
+  if (s === 'assigned' || s === 'accepted') {
+    return {
+      statusKey: 'in-progress',
+      statusLabel: 'Technician Assigned & Confirmed',
+      badgeBg: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+      dotColor: 'bg-cyan-400',
+      isActive: true,
+      progressPercent: '50%',
+    };
+  }
+  if (s === 'on-the-way') {
+    return {
+      statusKey: 'in-progress',
+      statusLabel: 'Technician En Route 🚐',
+      badgeBg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+      dotColor: 'bg-orange-400',
+      isActive: true,
+      progressPercent: '70%',
+    };
+  }
+  if (s === 'working') {
+    return {
+      statusKey: 'in-progress',
+      statusLabel: 'Repair in Progress ⚙️',
+      badgeBg: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+      dotColor: 'bg-blue-400',
+      isActive: true,
+      progressPercent: '85%',
+    };
+  }
+  if (s === 'completed') {
+    return {
+      statusKey: 'completed',
+      statusLabel: 'Completed & Verified ✓',
+      badgeBg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+      dotColor: 'bg-emerald-400',
+      isActive: false,
+      progressPercent: '100%',
+    };
+  }
+  if (s === 'cancelled') {
+    return {
+      statusKey: 'cancelled',
+      statusLabel: 'Booking Cancelled',
+      badgeBg: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+      dotColor: 'bg-rose-400',
+      isActive: false,
+      progressPercent: '0%',
+    };
+  }
+  return {
+    statusKey: 'in-progress',
+    statusLabel: status || 'In Progress',
+    badgeBg: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+    dotColor: 'bg-cyan-400',
+    isActive: true,
+    progressPercent: '40%',
+  };
+};
+
+/* ── Transform Real Order Document from Backend into Visual Booking Card ── */
+const formatRealOrder = (order) => {
+  if (!order) return null;
+  const statusInfo = mapStatusDetails(order.status || 'Pending');
+  const serviceTitle = order.ServiceDetails?.serviceName || order.issuedDescription || 'Plumbing Service';
+  const category = order.ServiceDetails?.category || 'General Repair';
+  const icon = mapCategoryIcon(category);
+
+  // Price calculation
+  const rawPrice =
+    order.total_Amount?.amount ??
+    order.ServiceDetails?.price?.amount ??
+    order.ServiceDetails?.visitCharge ??
+    500;
+  const formattedPrice = typeof rawPrice === 'number' ? rawPrice.toLocaleString('en-IN') : String(rawPrice);
+
+  // Date & Time slots
+  const dateObj = order.scheduleDate ? new Date(order.scheduleDate) : (order.createdAt ? new Date(order.createdAt) : new Date());
+  const dateStr = !isNaN(dateObj)
+    ? dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : 'Scheduled';
+  const timeStr = !isNaN(dateObj)
+    ? dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    : 'Standard Slot';
+
+  // Address
+  const fullAddress = [
+    order.address?.street,
+    order.address?.city,
+    order.address?.pin_code ? `PIN ${order.address?.pin_code}` : ''
+  ].filter(Boolean).join(', ') || 'Address on record';
+
+  // Work Order ID
+  const displayId = order._id ? `#FRRF-${order._id.slice(-6).toUpperCase()}` : '#FRRF-NEW';
+
+  // Technician details
+  const technician = order.technicianId && typeof order.technicianId === 'object' ? {
+    name: order.technicianId.FullName || order.technicianId.name || 'Certified Master Plumber',
+    badge: 'Master Plumber (License Verified)',
+    rating: '4.9 ★',
+    phone: order.technicianId.contact || order.technicianId.phone || '+91 98260 12345',
+    eta: 'En Route (Live GPS)',
+  } : {
+    name: 'Auto-Dispatching Plumber',
+    badge: 'Verifying nearest master technician',
+    rating: '5.0 ★',
+    phone: '+91 98260 12345',
+    eta: 'Estimated arrival in 15-30 mins',
+  };
+
+  return {
+    rawOrder: order,
+    id: displayId,
+    rawId: order._id,
+    service: serviceTitle,
+    category,
+    icon,
+    serviceImg: order.ServiceDetails?.serviceImg?.[0]?.url || order.issueImageUrl?.[0]?.url,
+    issueImg: order.issueImageUrl?.[0]?.url,
+    status: statusInfo.statusKey,
+    statusLabel: statusInfo.statusLabel,
+    badgeBg: statusInfo.badgeBg,
+    dotColor: statusInfo.dotColor,
+    isActive: statusInfo.isActive,
+    progressPercent: statusInfo.progressPercent,
+    date: dateStr,
+    timeSlot: timeStr,
+    price: formattedPrice,
+    rawPriceNumber: typeof rawPrice === 'number' ? rawPrice : Number(rawPrice) || 0,
+    address: fullAddress,
+    addressObj: order.address,
+    technician,
+    telemetry: `Category: ${category} • Location GPS Locked`,
+    warranty: order.status === 'Completed' ? 'Protected under 90-Day Guarantee' : '100% Workmanship & Damage Insured',
+    issuedDescription: order.issuedDescription || '',
+  };
+};
 
 /* ── Stitch Suggested Preventive Care ── */
 const SUGGESTED_SERVICES = [
@@ -252,24 +287,80 @@ const SUGGESTED_SERVICES = [
 export default function CustomerProfile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { OrderId: routeOrderId } = useParams();
   const { handleLogout, handleGetME } = useAuth();
-  const {handleGetOrder}=useOrder()
+  const { handleGetOrder } = useOrder();
+
+  // 4-Layer Architecture: Direct Redux Selectors from state.order (Layer 3: State Management)
+  const reduxServices = useSelector((state) => state.order?.services || []);
+  const reduxOrders = useSelector((state) => state.order?.orders || state.order?.item || []);
+  const reduxSelectedService = useSelector((state) => state.order?.selectedService || null);
+  const reduxLoading = useSelector((state) => state.order?.loading || false);
+  const reduxError = useSelector((state) => state.order?.error || null);
   const reduxUser = useSelector((state) => state.auth?.User);
 
-  // Original User Data from Backend GetMe / Redux with specified fallback
-  const [userData, setUserData] = useState({
-    FullName: reduxUser?.FullName || 'Raj',
-    email: reduxUser?.email || 'Raj@gmail.com',
-    contact: reduxUser?.contact || '+917748067975',
-    role: reduxUser?.role || 'customer',
-    city: reduxUser?.city || 'Indore, MP',
-  });
+  useListenPlumber({ userId: reduxUser?._id });
 
+  // Direct calculation from Redux store without intermediate useState duplication
+  const orderWithUser = useMemo(() => {
+    return Array.isArray(reduxOrders)
+      ? reduxOrders.find((o) => o?.userId && typeof o.userId === 'object')
+      : null;
+  }, [reduxOrders]);
+
+  const userData = useMemo(() => {
+    return {
+      FullName: orderWithUser?.userId?.FullName || reduxUser?.FullName || 'Customer',
+      email: orderWithUser?.userId?.email || reduxUser?.email || '',
+      contact: orderWithUser?.userId?.contact || reduxUser?.contact || '',
+      role: orderWithUser?.userId?.role || reduxUser?.role || 'customer',
+      city: orderWithUser?.address?.city || reduxUser?.city || '',
+    };
+  }, [orderWithUser, reduxUser]);
+
+  // Derived addresses directly from Redux orders
+  const [customAddresses, setCustomAddresses] = useState([]);
+  const addresses = useMemo(() => {
+    const dynamicAddrs = [];
+    const seen = new Set();
+    if (Array.isArray(reduxOrders)) {
+      reduxOrders.forEach((o, idx) => {
+        if (o?.address && (o.address.street || o.address.city)) {
+          const key = `${o.address.street}-${o.address.city}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            dynamicAddrs.push({
+              id: o.address._id || `addr-${idx}`,
+              type: `${o.address.label || 'Home'} (${o.ServiceDetails?.serviceName || 'Service Location'})`,
+              isDefault: dynamicAddrs.length === 0,
+              name: o.userId?.FullName || userData.FullName,
+              phone: o.userId?.contact || userData.contact,
+              addressLine: o.address.street || '',
+              cityState: `${o.address.city || ''}${o.address.pin_code ? ` - ${o.address.pin_code}` : ''}`,
+              landmark: `Booked for ${o.ServiceDetails?.serviceName || 'Plumbing Service'}`,
+            });
+          }
+        }
+      });
+    }
+    if (dynamicAddrs.length === 0 && customAddresses.length === 0) {
+      dynamicAddrs.push({
+        id: 1,
+        type: 'Home (Primary Residence)',
+        isDefault: true,
+        name: userData.FullName,
+        phone: userData.contact || '+91 98765 43210',
+        addressLine: 'Registered Address',
+        cityState: userData.city || 'India',
+        landmark: 'Verified Location',
+      });
+    }
+    return [...dynamicAddrs, ...customAddresses];
+  }, [reduxOrders, userData, customAddresses]);
 
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const [activeTab, setActiveTab] = useState('bookings');
   const [bookingFilter, setBookingFilter] = useState('all'); // all | active | completed
-  const [bookingsList] = useState(STITCH_BOOKINGS);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -277,37 +368,13 @@ export default function CustomerProfile() {
     return () => clearTimeout(t);
   }, []);
 
-  // Address state management
-  const [addresses, setAddresses] = useState([
-    {
-      id: 1,
-      type: 'Home (Primary Residence)',
-      isDefault: true,
-      name: userData.FullName,
-      phone: userData.contact,
-      addressLine: 'Flat 402, Royal Palms, MG Road, Palasia',
-      cityState: 'Indore, Madhya Pradesh - 452001',
-      landmark: 'Near Apollo Premier Hospital',
-    },
-    {
-      id: 2,
-      type: 'Office / Commercial Space',
-      isDefault: false,
-      name: 'Raj Tech Solutions',
-      phone: userData.contact,
-      addressLine: 'Suite 305, Corporate Heights, Scheme 54',
-      cityState: 'Indore, Madhya Pradesh - 452010',
-      landmark: 'Opposite Orbit Mall',
-    },
-  ]);
-
-  // Form State
+  // Form State for editing profile settings
   const [profileForm, setProfileForm] = useState({
-    name: userData.FullName,
-    email: userData.email,
-    phone: userData.contact,
+    name: '',
+    email: '',
+    phone: '',
     emergencyPhone: '+91 98260 12345',
-    city: userData.city,
+    city: '',
     preferredTime: 'Morning (09:00 AM – 12:00 PM)',
   });
   const [settingsSuccess, setSettingsSuccess] = useState(false);
@@ -315,79 +382,72 @@ export default function CustomerProfile() {
   const [newAddr, setNewAddr] = useState({
     type: 'Home',
     addressLine: '',
-    cityState: 'Indore, Madhya Pradesh - 452001',
+    cityState: 'Burhanpur, Madhya Pradesh',
     landmark: '',
   });
 
-  /* ── Fetch Real Data from GetMe API on Mount ── */
+  // Keep form in sync when userData changes
+  useEffect(() => {
+    setProfileForm((prev) => ({
+      ...prev,
+      name: userData.FullName,
+      email: userData.email,
+      phone: userData.contact,
+      city: userData.city,
+    }));
+  }, [userData.FullName, userData.email, userData.contact, userData.city]);
+
+  /* ── Fetch Real Data from GetMe API & Orders on Mount (Saved to Redux) ── */
   useEffect(() => {
     let isMounted = true;
-    const fetchOriginalUser = async () => {
+    const loadProfileData = async () => {
       try {
         setIsLoadingApi(true);
-        // Call backend GetMe API
-        const res = await GetMe();
-        if (isMounted && res?.data?.user) {
-          const u = res.data.user;
-          setUserData({
-            FullName: u.FullName || 'Raj',
-            email: u.email || 'Raj@gmail.com',
-            contact: u.contact || '+917748067975',
-            role: u.role || 'customer',
-            city: u.city || 'Indore, MP',
-          });
-          setProfileForm((prev) => ({
-            ...prev,
-            name: u.FullName || 'Raj',
-            email: u.email || 'Raj@gmail.com',
-            phone: u.contact || '+917748067975',
-            city: u.city || 'Indore, MP',
-          }));
-          dispatch(setUser(u));
-        } else if (isMounted && reduxUser) {
-          setUserData({
-            FullName: reduxUser.FullName || 'Raj',
-            email: reduxUser.email || 'Raj@gmail.com',
-            contact: reduxUser.contact || '+917748067975',
-            role: reduxUser.role || 'customer',
-            city: reduxUser.city || 'Indore, MP',
-          });
+        if (handleGetME) {
+          const u = await handleGetME();
+          if (isMounted && u) dispatch(setUser(u));
         }
       } catch (err) {
-        console.log('GetMe API note (using verified session data):', err?.message);
-        if (isMounted && reduxUser) {
-          setUserData({
-            FullName: reduxUser.FullName || 'Raj',
-            email: reduxUser.email || 'Raj@gmail.com',
-            contact: reduxUser.contact || '+917748067975',
-            role: reduxUser.role || 'customer',
-            city: reduxUser.city || 'Indore, MP',
-          });
-        }
+        console.log('GetMe API note:', err?.message);
       } finally {
         if (isMounted) setIsLoadingApi(false);
       }
     };
 
-    fetchOriginalUser();
+    loadProfileData();
+    handleGetOrder().catch((err) => {
+      console.warn('handleGetOrder fetch in CustomerProfile:', err?.message || err);
+    });
+
     return () => {
       isMounted = false;
     };
   }, []);
-/* Get Order from hook */
 
-useEffect(() => {
-handleGetOrder()
-}, [])
+  // Map real orders directly from Redux store to visual cards
+  const bookingsList = useMemo(() => {
+    return Array.isArray(reduxOrders)
+      ? reduxOrders.map(formatRealOrder).filter(Boolean)
+      : [];
+  }, [reduxOrders]);
 
   const filteredBookings = bookingsList.filter((b) => {
-    if (bookingFilter === 'active') return b.status === 'in-progress' || b.status === 'pending';
+    if (bookingFilter === 'active') return b.isActive;
     if (bookingFilter === 'completed') return b.status === 'completed';
     return true;
   });
 
-  const activeCount = bookingsList.filter((b) => b.status === 'in-progress').length;
+  const activeOrders = bookingsList.filter((b) => b.isActive);
+  const activeCount = activeOrders.length;
   const completedCount = bookingsList.filter((b) => b.status === 'completed').length;
+  const totalSpent = bookingsList.reduce((acc, curr) => acc + (curr.rawPriceNumber || 0), 0);
+
+  // Active showcase order: either route OrderId or first active order or first order
+  const activeOrder =
+    (routeOrderId ? bookingsList.find((b) => b.rawId === routeOrderId) : null) ||
+    activeOrders[0] ||
+    bookingsList[0] ||
+    null;
 
   const onLogoutClick = async () => {
     try {
@@ -400,11 +460,6 @@ handleGetOrder()
 
   const handleSaveSettings = (e) => {
     e.preventDefault();
-    setUserData((prev) => ({
-      ...prev,
-      FullName: profileForm.name,
-      contact: profileForm.phone,
-    }));
     dispatch(
       setUser({
         ...reduxUser,
@@ -431,13 +486,13 @@ handleGetOrder()
       cityState: newAddr.cityState,
       landmark: newAddr.landmark || 'Not specified',
     };
-    setAddresses((prev) => [...prev, item]);
-    setNewAddr({ type: 'Home', addressLine: '', cityState: 'Indore, Madhya Pradesh - 452001', landmark: '' });
+    setCustomAddresses((prev) => [...prev, item]);
+    setNewAddr({ type: 'Home', addressLine: '', cityState: 'Burhanpur, Madhya Pradesh', landmark: '' });
     setShowAddAddressModal(false);
   };
 
   const handleDeleteAddress = (id) => {
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
+    setCustomAddresses((prev) => prev.filter((a) => a.id !== id));
   };
 
   return (
@@ -490,7 +545,7 @@ handleGetOrder()
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-2xl font-black text-white">{userData.FullName}</h2>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                  {userData.role}
+                  {userData.role} 
                 </span>
               </div>
               <p className="text-xs text-white/60 font-mono mt-0.5">
@@ -514,11 +569,11 @@ handleGetOrder()
             </div>
             <div className="bg-[#070E1A]/80 border border-white/8 rounded-2xl px-3 py-2.5 text-center">
               <p className="text-[10px] text-white/40 font-semibold uppercase">Warranties Active</p>
-              <p className="text-base sm:text-lg font-black text-emerald-400">2 Protected</p>
+              <p className="text-base sm:text-lg font-black text-emerald-400">{completedCount} Protected</p>
             </div>
             <div className="bg-[#070E1A]/80 border border-white/8 rounded-2xl px-3 py-2.5 text-center">
-              <p className="text-[10px] text-white/40 font-semibold uppercase">Fleet Savings</p>
-              <p className="text-base sm:text-lg font-black text-yellow-400">₹18,500</p>
+              <p className="text-[10px] text-white/40 font-semibold uppercase">Total Order Value</p>
+              <p className="text-base sm:text-lg font-black text-yellow-400">₹{totalSpent.toLocaleString('en-IN')}</p>
             </div>
           </div>
         </div>
@@ -655,8 +710,8 @@ handleGetOrder()
                   </div>
                 </div>
 
-                {/* ── HIGH VISUAL FOCUS: ACTIVE SERVICE SHOWCASE (Stitch Design) ── */}
-                {bookingFilter !== 'completed' && activeCount > 0 && (
+                {/* ── HIGH VISUAL FOCUS: ACTIVE SERVICE SHOWCASE (Real Data via 4-Layer Architecture) ── */}
+                {bookingFilter !== 'completed' && activeOrder && activeOrder.isActive && (
                   <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0c1e38] via-[#0A1628] to-[#070E1A] border-2 border-cyan-500/40 p-5 sm:p-6 shadow-[0_10px_35px_rgba(6,182,212,0.18)]">
                     <div className="absolute top-0 right-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-cyan-400 via-orange-400 to-cyan-500" />
@@ -668,48 +723,68 @@ handleGetOrder()
                           <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500" />
                         </span>
                         <span className="font-bold text-xs uppercase tracking-wider text-cyan-400">
-                          Active Priority Dispatch • Assigned & Moving
+                          {activeOrder.statusLabel}
                         </span>
                       </div>
                       <span className="text-xs text-white/50 font-mono bg-white/5 px-2.5 py-1 rounded-md border border-white/10">
-                        Work Order #FRRF-9842
+                        Work Order {activeOrder.id}
                       </span>
                     </div>
 
                     <div className="pl-2 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                      <div>
-                        <h2 className="text-lg sm:text-xl font-black text-white mb-1">
-                          CPVC High-Pressure Pipe Burst & Valve Repair
-                        </h2>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3 mb-2">
+                          {activeOrder.serviceImg && (
+                            <img
+                              src={activeOrder.serviceImg}
+                              alt={activeOrder.service}
+                              className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
+                            />
+                          )}
+                          <div>
+                            <h2 className="text-lg sm:text-xl font-black text-white mb-0.5">
+                              {activeOrder.service}
+                            </h2>
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                              {activeOrder.category}
+                            </span>
+                          </div>
+                        </div>
+
                         <p className="text-xs sm:text-sm text-white/60 flex flex-wrap items-center gap-2 mb-1">
                           <Calendar size={14} className="text-cyan-400" />
-                          <span>Slot: Today, 11:00 AM – 12:30 PM</span>
+                          <span>Slot: {activeOrder.date} • {activeOrder.timeSlot}</span>
                           <span>•</span>
                           <MapPin size={14} className="text-orange-400" />
-                          <span>Palasia, Indore (Primary Residence)</span>
+                          <span className="truncate max-w-xs">{activeOrder.address}</span>
                         </p>
-                        <p className="text-xs font-mono text-cyan-300/80">
-                          Telemetry: Water Line Pressure 4.2 Bar • Acoustic Scan: Active
+                        {activeOrder.issuedDescription && (
+                          <p className="text-xs text-white/70 italic mt-1 line-clamp-2">
+                            "{activeOrder.issuedDescription}"
+                          </p>
+                        )}
+                        <p className="text-xs font-mono text-cyan-300/80 mt-1">
+                          Telemetry: {activeOrder.telemetry}
                         </p>
 
                         {/* Assigned Plumber Card */}
                         <div className="mt-4 flex items-center gap-3 bg-white/4 border border-white/8 rounded-xl p-3 max-w-md">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-sm text-white shrink-0">
-                            MV
+                            {activeOrder.technician.name.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="text-xs font-bold text-white truncate">Marcus Vance</p>
+                              <p className="text-xs font-bold text-white truncate">{activeOrder.technician.name}</p>
                               <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded font-bold">
-                                4.9 ★
+                                {activeOrder.technician.rating}
                               </span>
                             </div>
-                            <p className="text-[11px] text-cyan-300 font-medium">
-                              Master Plumber (Lic. #PL-88421) • ETA: 14 Mins
+                            <p className="text-[11px] text-cyan-300 font-medium truncate">
+                              {activeOrder.technician.badge} • {activeOrder.technician.eta}
                             </p>
                           </div>
                           <a
-                            href="tel:9826099881"
+                            href={`tel:${activeOrder.technician.phone}`}
                             className="p-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 transition-colors"
                             title="Call Technician"
                           >
@@ -719,18 +794,16 @@ handleGetOrder()
                       </div>
 
                       {/* Right: Pricing & CTA */}
-                      <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 border-white/10 pt-4 md:pt-0">
+                      <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 border-white/10 pt-4 md:pt-0 shrink-0">
                         <div className="text-left md:text-right">
-                          <p className="text-xs text-white/50 uppercase font-semibold">Fixed Estimate</p>
-                          <p className="text-2xl sm:text-3xl font-black text-white">₹649</p>
+                          <p className="text-xs text-white/50 uppercase font-semibold">Total Amount</p>
+                          <p className="text-2xl sm:text-3xl font-black text-white">₹{activeOrder.price}</p>
                         </div>
                         <div className="flex items-center gap-2 mt-2">
                           <button
                             type="button"
                             onClick={() =>
-                              alert(
-                                'Live GPS tracking: Van is 2.1 km away on MG Road, approaching Royal Palms in approx 14 minutes!'
-                              )
+                              navigate(`/customer/customer_tracking/${activeOrder.rawId}`)
                             }
                             className="bg-cyan-500 hover:bg-cyan-400 text-[#070E1A] font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.35)] transition-all cursor-pointer hover:scale-105"
                           >
@@ -744,13 +817,24 @@ handleGetOrder()
                     <div className="mt-5 pl-2 pt-4 border-t border-white/8">
                       <div className="flex items-center justify-between text-[11px] text-white/70 font-semibold mb-2">
                         <span className="text-cyan-400 font-bold">✓ Booking Confirmed</span>
-                        <span className="text-cyan-400 font-bold">✓ Technician Dispatched</span>
-                        <span className="text-orange-400 font-bold animate-pulse">● En Route (14m)</span>
-                        <span className="text-white/30">○ Diagnostic & Repair</span>
-                        <span className="text-white/30">○ Tested & Warranty</span>
+                        <span className={activeOrder.status === 'pending' ? 'text-amber-400 font-bold animate-pulse' : 'text-cyan-400 font-bold'}>
+                          {activeOrder.status === 'pending' ? '● Matching Plumber' : '✓ Plumber Assigned'}
+                        </span>
+                        <span className={activeOrder.status === 'on-the-way' ? 'text-orange-400 font-bold animate-pulse' : (['working', 'completed'].includes(activeOrder.status) ? 'text-cyan-400 font-bold' : 'text-white/30')}>
+                          {activeOrder.status === 'on-the-way' ? '● En Route 🚐' : (['working', 'completed'].includes(activeOrder.status) ? '✓ Arrived' : '○ En Route')}
+                        </span>
+                        <span className={activeOrder.status === 'working' ? 'text-blue-400 font-bold animate-pulse' : (activeOrder.status === 'completed' ? 'text-cyan-400 font-bold' : 'text-white/30')}>
+                          {activeOrder.status === 'working' ? '● Repairing ⚙️' : (activeOrder.status === 'completed' ? '✓ Repaired' : '○ Repair')}
+                        </span>
+                        <span className={activeOrder.status === 'completed' ? 'text-emerald-400 font-bold' : 'text-white/30'}>
+                          {activeOrder.status === 'completed' ? '✓ Verified & Warranty' : '○ Warranty'}
+                        </span>
                       </div>
                       <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-cyan-500 to-orange-400 w-3/5 rounded-full" />
+                        <div
+                          className="h-full bg-gradient-to-r from-cyan-500 via-orange-400 to-emerald-400 rounded-full transition-all duration-500"
+                          style={{ width: activeOrder.progressPercent }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -763,12 +847,19 @@ handleGetOrder()
                     <span className="text-xs font-normal text-white/40">FRRF Digital Guarantee Protected</span>
                   </h3>
 
-                  {filteredBookings.length === 0 ? (
+                  {reduxLoading ? (
+                    <div className="bg-[#070E1A]/85 border border-white/8 rounded-2xl p-8 text-center animate-pulse">
+                      <div className="w-10 h-10 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-sm text-cyan-300 font-bold">Loading your real bookings...</p>
+                    </div>
+                  ) : filteredBookings.length === 0 ? (
                     <div className="bg-[#070E1A]/85 border border-white/8 rounded-2xl p-10 text-center">
                       <p className="text-4xl mb-3">💧</p>
-                      <h4 className="font-bold text-white text-base">No bookings found in this filter</h4>
+                      <h4 className="font-bold text-white text-base">No bookings found</h4>
                       <p className="text-xs text-white/50 max-w-sm mx-auto mt-1 mb-4">
-                        You don't have any matching plumbing appointments. Need a quick fix?
+                        {bookingsList.length === 0
+                          ? "You haven't placed any bookings yet. Book a certified plumber for 24/7 upfront service!"
+                          : "No orders match the selected filter. Switch tabs to see all orders."}
                       </p>
                       <Link
                         to="/customer/booking"
@@ -780,9 +871,9 @@ handleGetOrder()
                   ) : (
                     filteredBookings.map((b) => (
                       <div
-                        key={b.id}
+                        key={b.rawId || b.id}
                         className={`bg-[#070E1A]/85 border rounded-2xl p-4 sm:p-5 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] ${
-                          b.status === 'in-progress'
+                          b.isActive
                             ? 'border-cyan-500/30 hover:border-cyan-500/60'
                             : 'border-white/8 hover:border-white/20'
                         }`}
@@ -790,9 +881,18 @@ handleGetOrder()
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                           {/* Service Details */}
                           <div className="flex items-start gap-3.5">
-                            <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
-                              {b.icon}
-                            </div>
+                            {b.serviceImg ? (
+                              <img
+                                src={b.serviceImg}
+                                alt={b.service}
+                                className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
+                                {b.icon}
+                              </div>
+                            )}
+
                             <div>
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <h4 className="font-bold text-base sm:text-lg text-white">
@@ -811,19 +911,25 @@ handleGetOrder()
                                 <span className="text-cyan-400/90 font-medium">{b.category}</span>
                               </p>
 
+                              {b.address && (
+                                <p className="text-[11px] text-white/40 mt-1 flex items-center gap-1 truncate max-w-md">
+                                  <MapPin size={11} className="text-orange-400 shrink-0" />
+                                  <span className="truncate">{b.address}</span>
+                                </p>
+                              )}
+
+                              {b.issuedDescription && (
+                                <p className="text-xs text-white/60 italic mt-1 line-clamp-1">
+                                  Issue: {b.issuedDescription}
+                                </p>
+                              )}
+
                               {/* Badges: Status + Warranty */}
                               <div className="flex flex-wrap items-center gap-2 mt-3">
-                                {b.status === 'in-progress' ? (
-                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30">
-                                    <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-                                    {b.statusLabel}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                                    {b.statusLabel}
-                                  </span>
-                                )}
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${b.badgeBg}`}>
+                                  <span className={`w-2 h-2 rounded-full ${b.dotColor} ${b.isActive ? 'animate-pulse' : ''}`} />
+                                  {b.statusLabel}
+                                </span>
 
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/5 text-white/70 border border-white/10">
                                   <ShieldCheck size={12} className="text-cyan-400" />
@@ -834,12 +940,12 @@ handleGetOrder()
                           </div>
 
                           {/* Price & Action Area */}
-                          <div className="w-full md:w-auto flex md:flex-col justify-between items-center md:items-end border-t md:border-t-0 border-white/8 pt-3 md:pt-0">
+                          <div className="w-full md:w-auto flex md:flex-col justify-between items-center md:items-end border-t md:border-t-0 border-white/8 pt-3 md:pt-0 shrink-0">
                             <div>
                               <p className="font-black text-xl sm:text-2xl text-white text-right">
                                 ₹{b.price}
                               </p>
-                              <p className="text-[10px] text-white/40 text-right">Taxes & Parts Included</p>
+                              <p className="text-[10px] text-white/40 text-right">Total Price</p>
                             </div>
 
                             <div className="flex items-center gap-2 mt-2">
@@ -847,7 +953,7 @@ handleGetOrder()
                                 type="button"
                                 onClick={() =>
                                   alert(
-                                    `Downloading verified tax invoice PDF for ${b.id} issued to ${userData.FullName} with 90-Day Unconditional Guarantee.`
+                                    `Downloading verified tax invoice PDF for ${b.id} issued to ${userData.FullName || 'Customer'} with FRRF 90-Day Guarantee.`
                                   )
                                 }
                                 className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors cursor-pointer"
@@ -856,12 +962,22 @@ handleGetOrder()
                                 <span>Invoice PDF</span>
                               </button>
 
-                              <Link
-                                to="/customer/booking"
-                                className="inline-flex items-center gap-1 text-xs text-[#070E1A] bg-white hover:bg-cyan-400 font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm"
-                              >
-                                <span>Book Again ⚡</span>
-                              </Link>
+                              {b.isActive ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/customer/customer_tracking/${b.rawId}`)}
+                                  className="inline-flex items-center gap-1 text-xs text-[#070E1A] bg-cyan-400 hover:bg-cyan-300 font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm cursor-pointer"
+                                >
+                                  <span>Track Live 🚐</span>
+                                </button>
+                              ) : (
+                                <Link
+                                  to="/customer/booking"
+                                  className="inline-flex items-center gap-1 text-xs text-[#070E1A] bg-white hover:bg-cyan-400 font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm"
+                                >
+                                  <span>Book Again ⚡</span>
+                                </Link>
+                              )}
                             </div>
                           </div>
                         </div>

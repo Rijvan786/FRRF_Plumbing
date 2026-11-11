@@ -1,7 +1,8 @@
 import axios from "axios"
 const api=axios.create({
-  baseURL:"https://frpf-plumbing.onrender.com/api/auth",
- withCredentials:true
+
+baseURL: "https://frpf-plumbing.onrender.com/api/auth",
+withCredentials:true
 })
 
       
@@ -9,19 +10,19 @@ export async function Register({FullName,email,contact,city,
       isVerifiedTech,
       experienceYears,
       role,
-      password,}){
+      password,OrderId,AddressId}){
         
         const response=await api.post("/register",{
-            FullName,email,contact,city,isVerifiedTech,experienceYears,role,password
+            FullName,email,contact,city,isVerifiedTech,experienceYears,role,password,OrderId,AddressId
         })
 
         return response.data
       }
 
 
-export async function Login({FullName,email,  password}){
+export async function Login({FullName,email,  password,OrderId,AddressId}){
   
-    const  response=await api.post("/login",{email, FullName, password})
+    const  response=await api.post("/login",{email, FullName, password,OrderId,AddressId})
 
     return response.data
 }
@@ -56,7 +57,7 @@ export async function Logout(){
 
 export async function GetMe(){
     const response=await api.get("/get-me")
-    console.log(response);
+
     return response.data
 }
 

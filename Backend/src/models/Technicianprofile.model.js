@@ -1,6 +1,6 @@
 import mongoose from "mongoose"
 
-const TechnicianProfileSchema=mongoose.Schema({
+const   TechnicianProfileSchema=mongoose.Schema({
 
   userId: { type: mongoose.Schema.Types.ObjectId, 
     ref: "user", required: true },
@@ -40,7 +40,7 @@ pin_code: { type: String }
 }, { timestamps:true}     
 )
 
-
+TechnicianProfileSchema.index({ liveLocation: '2dsphere' });
 const TechnicianProfileModel=mongoose.model("TechnicianProfile",TechnicianProfileSchema)
 
 export default TechnicianProfileModel
