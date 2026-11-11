@@ -54,15 +54,15 @@ export const router = createBrowserRouter([
         element: <Booking />,
       },
       {
-        path: "/customer/resend-mail",
+        path: "/resend-mail",
         element: <Resendmail />,
       },
       {
-        path: "/customer/forget-mail",
+        path: "/forget-mail",
         element: <Forgetmail />,
       },
       {
-        path: "/customer/forget-password",
+        path: "/forget-password",
         element: <ForgetPassword />,
       },
       {

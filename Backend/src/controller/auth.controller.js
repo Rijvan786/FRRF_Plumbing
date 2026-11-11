@@ -149,12 +149,12 @@ console.log(contact);
     }
 
     // ── Send welcome email ──
-    await SendMailDynamicContent({
-      email: email,
-      subject: emailSubject,
-      subject_line: emailSubject,
-      html: emailHtml,
-    });
+    // await SendMailDynamicContent({
+    //   email: email,
+    //   subject: emailSubject,
+    //   subject_line: emailSubject,
+    //   html: emailHtml,
+    // });
     
 
     console.log(`✅ Welcome email sent to: ${email} (role: ${role})`);
@@ -272,13 +272,13 @@ export async function ResendMailController(req, res) {
       });
     }
 
-    await SendMailDynamicContent({
-      email: user.email,
-      subject: emailSubject,
-      subject_line: emailSubject,
-      text: `Hello ${user.FullName},\n\nClick the link below to verify your FRRF Plumbing account:\n${verifyUrl}\n\nValid for 7 days under our Work 1st Policy.\n\n— FRRF Plumbing Team`,
-      html: emailHtml,
-    });
+    // await SendMailDynamicContent({
+    //   email: user.email,
+    //   subject: emailSubject,
+    //   subject_line: emailSubject,
+    //   text: `Hello ${user.FullName},\n\nClick the link below to verify your FRRF Plumbing account:\n${verifyUrl}\n\nValid for 7 days under our Work 1st Policy.\n\n— FRRF Plumbing Team`,
+    //   html: emailHtml,
+    // });
 
     // Update timestamp for rate limit tracking
     user.updatedAt = new Date();
@@ -378,7 +378,7 @@ function verificationPage(type, name = "User", role = "customer") {
         ? `Welcome aboard, ${firstName}! Your technician account is 100% verified. You are now authorized to accept emergency dispatch requests in your pin code.`
         : `Welcome aboard, ${firstName}! Fast, Reliable & Affordable Plumbing Services at Your Doorstep. Certified master technicians for rapid residential & commercial repair.`,
       primaryAction: isTechnician ? "Open Partner Dashboard →" : "Book a Plumber Now →",
-      primaryUrl: isTechnician ? `${frontendUrl}/Technician-register` : `${frontendUrl}/booking`,
+      primaryUrl: isTechnician ? `${frontendUrl}/technician/Technician-register` : `${frontendUrl}/booking`,
       confetti: true,
     },
     already: {
@@ -388,7 +388,7 @@ function verificationPage(type, name = "User", role = "customer") {
       headlineAccent: "Verified & Ready",
       subtitle: `Welcome back, ${firstName}! Your profile is fully active. Fast, reliable & affordable plumbing services at your doorstep with certified technicians.`,
       primaryAction: "Book a Plumber Now →",
-      primaryUrl: `${frontendUrl}/booking`,
+      primaryUrl: `${frontendUrl}/customer/booking`,
       confetti: false,
     },
     expired: {
@@ -446,7 +446,7 @@ function verificationPage(type, name = "User", role = "customer") {
           <a href="${frontendUrl}/#services" class="px-4 py-1.5 rounded-full text-white/80 font-semibold text-sm hover:text-cyan-400 transition-colors">Services</a>
           <a href="${frontendUrl}/#about" class="px-4 py-1.5 rounded-full text-white/80 font-semibold text-sm hover:text-cyan-400 transition-colors">About</a>
           <a href="${frontendUrl}/#contact" class="px-4 py-1.5 rounded-full text-white/80 font-semibold text-sm hover:text-cyan-400 transition-colors">Contact</a>
-          <a href="${frontendUrl}/technician-register" class="px-4 py-1.5 rounded-full text-white/80 font-semibold text-sm hover:text-cyan-400 transition-colors">Get Job</a>
+          <a href="${frontendUrl}/technician/technician-register" class="px-4 py-1.5 rounded-full text-white/80 font-semibold text-sm hover:text-cyan-400 transition-colors">Get Job</a>
         </div>
       </nav>
 
@@ -455,8 +455,8 @@ function verificationPage(type, name = "User", role = "customer") {
           <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]"></span>
           24/7 Live
         </div>
-        <a href="${frontendUrl}/login" class="hidden sm:block border border-white/20 text-white/80 px-4 py-2 rounded-full font-semibold text-sm hover:border-white/50 hover:text-white transition-all">Sign In</a>
-        <a href="${frontendUrl}/booking" class="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-bold text-sm shadow-[0_0_16px_rgba(255,107,53,0.38)] hover:-translate-y-0.5 transition-all whitespace-nowrap">Book Now ⚡</a>
+        <a href="${frontendUrl}/customer/login" class="hidden sm:block border border-white/20 text-white/80 px-4 py-2 rounded-full font-semibold text-sm hover:border-white/50 hover:text-white transition-all">Sign In</a>
+        <a href="${frontendUrl}/customer/booking" class="bg-gradient-to-br from-orange-500 to-orange-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-bold text-sm shadow-[0_0_16px_rgba(255,107,53,0.38)] hover:-translate-y-0.5 transition-all whitespace-nowrap">Book Now ⚡</a>
       </div>
     </div>
   </header>
@@ -699,15 +699,15 @@ export async function ResetPasswordMailController(req, res) {
 
     // ── Redirect URL: https://frpf-plumbing.onrender.com/forgot-passwordpage ──
     const frontendBaseUrl = Config.FRONTEND_URL || "https://frpf-plumbing.onrender.com";
-    const resetUrl = `${frontendBaseUrl}/forgot-passwordpage?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
+    const resetUrl = `${frontendBaseUrl}/forget-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`;
 
     // ── Product-level modern HTML email template ──
-    const emailHtml = resetPasswordEmail({
-      FullName: user.FullName,
-      email: user.email,
-      role: user.role,
-      resetUrl,
-    });
+    // const emailHtml = resetPasswordEmail({
+    //   FullName: user.FullName,
+    //   email: user.email,
+    //   role: user.role,
+    //   resetUrl,
+    // });
 
     const emailSubject =
       user.role === "technician"
@@ -715,13 +715,13 @@ export async function ResetPasswordMailController(req, res) {
         : "🔐 Password Reset Request — FRRF Plumbing Services";
 
     // ── Send email via email service ──
-    await SendMailDynamicContent({
-      email: user.email,
-      subject: emailSubject,
-      subject_line: emailSubject,
-      text: `Hello ${user.FullName},\n\nWe received a request to reset your FRRF Plumbing password.\n\nPlease click the link below to set a new password:\n${resetUrl}\n\nNote: This link will expire in 1 hour under our Work 1st Security Guard.\n\nIf you did not request a password reset, please ignore this email.\n\n— FRRF Plumbing Security Team`,
-      html: emailHtml,
-    });
+    // await SendMailDynamicContent({
+    //   email: user.email,
+    //   subject: emailSubject,
+    //   subject_line: emailSubject,
+    //   text: `Hello ${user.FullName},\n\nWe received a request to reset your FRRF Plumbing password.\n\nPlease click the link below to set a new password:\n${resetUrl}\n\nNote: This link will expire in 1 hour under our Work 1st Security Guard.\n\nIf you did not request a password reset, please ignore this email.\n\n— FRRF Plumbing Security Team`,
+    //   html: emailHtml,
+    // });
 
     console.log(
       `🔑 Password reset email sent to: ${user.email} (${user.role})`,
@@ -1039,23 +1039,23 @@ export async function GoogleCallback(req, res) {
         : "🔐 Security Alert: Google Sign-In Successful — FRRF Plumbing";
 
     // Dispatch email asynchronously
-    await SendMailDynamicContent({
-      email: user.email,
-      subject: emailSubject,
-      subject_line: emailSubject,
-      html: emailHtml,
-    })
-      .then(() => {
-        console.log(
-          `📧 Google OAuth notification email sent to: ${user.email}`,
-        );
-      })
-      .catch((emailErr) => {
-        console.error(
-          `⚠️ Failed to send Google callback email to ${user.email}:`,
-          emailErr.message,
-        );
-      });
+    // await SendMailDynamicContent({
+    //   email: user.email,
+    //   subject: emailSubject,
+    //   subject_line: emailSubject,
+    //   html: emailHtml,
+    // })
+      // .then(() => {
+      //   console.log(
+      //     `📧 Google OAuth notification email sent to: ${user.email}`,
+      //   );
+      // })
+      // .catch((emailErr) => {
+      //   console.error(
+      //     `⚠️ Failed to send Google callback email to ${user.email}:`,
+      //     emailErr.message,
+      //   );
+      // });
     // 
     return res.redirect("https://frpf-plumbing.onrender.com/");
   } catch (error) {
