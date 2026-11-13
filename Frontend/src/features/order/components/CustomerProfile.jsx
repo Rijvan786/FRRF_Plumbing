@@ -288,7 +288,7 @@ export default function CustomerProfile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { OrderId: routeOrderId } = useParams();
-  const { handleLogout, handleGetME } = useAuth();
+  const { handleLogout, handleGetME, handleEditCustomerProfile } = useAuth();
   const { handleGetOrder } = useOrder();
 
   // 4-Layer Architecture: Direct Redux Selectors from state.order (Layer 3: State Management)
@@ -318,45 +318,37 @@ export default function CustomerProfile() {
     };
   }, [orderWithUser, reduxUser]);
 
-  // Derived addresses directly from Redux orders
-  const [customAddresses, setCustomAddresses] = useState([]);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [addressEditForm, setAddressEditForm] = useState({
+    label: 'Home',
+    street: '',
+    city: 'Burhanpur',
+    pin_code: '450445',
+    landmark: '',
+    longitude: '',
+    latitude: '',
+  });
+  // Derived customer service address directly from Redux / form state
   const addresses = useMemo(() => {
-    const dynamicAddrs = [];
-    const seen = new Set();
-    if (Array.isArray(reduxOrders)) {
-      reduxOrders.forEach((o, idx) => {
-        if (o?.address && (o.address.street || o.address.city)) {
-          const key = `${o.address.street}-${o.address.city}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            dynamicAddrs.push({
-              id: o.address._id || `addr-${idx}`,
-              type: `${o.address.label || 'Home'} (${o.ServiceDetails?.serviceName || 'Service Location'})`,
-              isDefault: dynamicAddrs.length === 0,
-              name: o.userId?.FullName || userData.FullName,
-              phone: o.userId?.contact || userData.contact,
-              addressLine: o.address.street || '',
-              cityState: `${o.address.city || ''}${o.address.pin_code ? ` - ${o.address.pin_code}` : ''}`,
-              landmark: `Booked for ${o.ServiceDetails?.serviceName || 'Plumbing Service'}`,
-            });
-          }
-        }
-      });
-    }
-    if (dynamicAddrs.length === 0 && customAddresses.length === 0) {
-      dynamicAddrs.push({
-        id: 1,
-        type: 'Home (Primary Residence)',
+    const primaryStreet = addressEditForm.street || orderWithUser?.address?.street || 'Registered Home Address';
+    const primaryCity = addressEditForm.city || orderWithUser?.address?.city || userData.city || 'Burhanpur';
+    const primaryPin = addressEditForm.pin_code || orderWithUser?.address?.pin_code || '450445';
+    const primaryLabel = addressEditForm.label || orderWithUser?.address?.label || 'Home';
+    const primaryLandmark = addressEditForm.landmark || orderWithUser?.address?.landmark || 'Primary Dispatch Point';
+
+    return [
+      {
+        id: 'primary-service-addr',
+        type: `${primaryLabel} (Primary Residence)`,
         isDefault: true,
         name: userData.FullName,
         phone: userData.contact || '+91 98765 43210',
-        addressLine: 'Registered Address',
-        cityState: userData.city || 'India',
-        landmark: 'Verified Location',
-      });
-    }
-    return [...dynamicAddrs, ...customAddresses];
-  }, [reduxOrders, userData, customAddresses]);
+        addressLine: primaryStreet,
+        cityState: `${primaryCity}${primaryPin ? ` - ${primaryPin}` : ''}`,
+        landmark: primaryLandmark,
+      },
+    ];
+  }, [orderWithUser, userData, addressEditForm]);
 
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const [activeTab, setActiveTab] = useState('bookings');
@@ -374,28 +366,65 @@ export default function CustomerProfile() {
     email: '',
     phone: '',
     emergencyPhone: '+91 98260 12345',
+    street: '',
     city: '',
+    pin_code: '',
     preferredTime: 'Morning (09:00 AM – 12:00 PM)',
   });
   const [settingsSuccess, setSettingsSuccess] = useState(false);
-  const [showAddAddressModal, setShowAddAddressModal] = useState(false);
-  const [newAddr, setNewAddr] = useState({
-    type: 'Home',
-    addressLine: '',
-    cityState: 'Burhanpur, Madhya Pradesh',
-    landmark: '',
-  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
+  };
+
+  
 
   // Keep form in sync when userData changes
   useEffect(() => {
+    const addr = orderWithUser?.address || {};
     setProfileForm((prev) => ({
       ...prev,
       name: userData.FullName,
       email: userData.email,
       phone: userData.contact,
-      city: userData.city,
+      street: addr.street || '',
+      city: userData.city || addr.city || 'Burhanpur',
+      pin_code: addr.pin_code || '450445',
     }));
-  }, [userData.FullName, userData.email, userData.contact, userData.city]);
+    setAddressEditForm({
+      label: addr.label || 'Home',
+      street: addr.street || '',
+      city: userData.city || addr.city || 'Burhanpur',
+      pin_code: addr.pin_code || '450445',
+      landmark: addr.landmark || '',
+      longitude: addr.location?.coordinates?.[0] !== undefined ? addr.location.coordinates[0] : '',
+      latitude: addr.location?.coordinates?.[1] !== undefined ? addr.location.coordinates[1] : '',
+    });
+  }, [userData.FullName, userData.email, userData.contact, userData.city, orderWithUser]);
+
+  const handleDetectCustomerGPS = () => {
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser', 'error');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setAddressEditForm((prev) => ({
+          ...prev,
+          longitude: Number(pos.coords.longitude.toFixed(6)),
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+        }));
+        showToast('Current GPS coordinates detected!');
+      },
+      (err) => {
+        showToast('Could not fetch GPS: ' + err.message, 'error');
+      }
+    );
+  };
 
   /* ── Fetch Real Data from GetMe API & Orders on Mount (Saved to Redux) ── */
   useEffect(() => {
@@ -458,41 +487,57 @@ export default function CustomerProfile() {
     navigate('/customer');
   };
 
-  const handleSaveSettings = (e) => {
+  const handleSaveSettings = async (e) => {
     e.preventDefault();
-    dispatch(
-      setUser({
-        ...reduxUser,
+    try {
+      setIsSavingProfile(true);
+      const res = await handleEditCustomerProfile({
         FullName: profileForm.name,
         contact: profileForm.phone,
-        email: profileForm.email,
-        role: userData.role,
-      })
-    );
-    setSettingsSuccess(true);
-    setTimeout(() => setSettingsSuccess(false), 3500);
+        street: profileForm.street,
+        city: profileForm.city,
+        pin_code: profileForm.pin_code,
+      });
+      setSettingsSuccess(true);
+      showToast('Profile & infrastructure settings updated successfully!');
+      setTimeout(() => setSettingsSuccess(false), 3500);
+      if (handleGetME) await handleGetME();
+      if (handleGetOrder) await handleGetOrder();
+    } catch (err) {
+      console.error('Error in handleSaveSettings:', err);
+      showToast(err?.response?.data?.message || err?.message || 'Failed to update profile', 'error');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleAddAddress = (e) => {
-    e.preventDefault();
-    if (!newAddr.addressLine.trim()) return;
-    const item = {
-      id: Date.now(),
-      type: newAddr.type || 'Home',
-      isDefault: false,
-      name: profileForm.name,
-      phone: profileForm.phone,
-      addressLine: newAddr.addressLine,
-      cityState: newAddr.cityState,
-      landmark: newAddr.landmark || 'Not specified',
-    };
-    setCustomAddresses((prev) => [...prev, item]);
-    setNewAddr({ type: 'Home', addressLine: '', cityState: 'Burhanpur, Madhya Pradesh', landmark: '' });
-    setShowAddAddressModal(false);
-  };
+  const handleSaveEditedAddress = async (e) => {
+    if (e) e.preventDefault();
+    if (!addressEditForm.street.trim()) {
+      showToast('Street address is required', 'error');
+      return;
+    }
+    try {
+      setIsSavingAddress(true);
+      await handleEditCustomerProfile({
+        street: addressEditForm.street.trim(),
+        city: addressEditForm.city ? addressEditForm.city.trim() : 'Burhanpur',
+        pin_code: addressEditForm.pin_code ? addressEditForm.pin_code.trim() : '450445',
+        label: addressEditForm.label || 'Home',
+        longitude: addressEditForm.longitude !== '' ? Number(addressEditForm.longitude) : undefined,
+        latitude: addressEditForm.latitude !== '' ? Number(addressEditForm.latitude) : undefined,
+      });
 
-  const handleDeleteAddress = (id) => {
-    setCustomAddresses((prev) => prev.filter((a) => a.id !== id));
+      setIsEditingAddress(false);
+      showToast('Service address updated successfully!');
+      if (handleGetME) await handleGetME();
+      if (handleGetOrder) await handleGetOrder();
+    } catch (err) {
+      console.error('Error saving customer address:', err);
+      showToast(err?.response?.data?.message || err?.message || 'Failed to update address', 'error');
+    } finally {
+      setIsSavingAddress(false);
+    }
   };
 
   return (
@@ -512,8 +557,19 @@ export default function CustomerProfile() {
       <div className="fixed top-24 right-1/4 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
       <div className="fixed bottom-24 left-10 w-[450px] h-[450px] bg-orange-500/10 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Persistent Navbar (untouched) */}
-     
+      {/* ── Toast Notification Pill ── */}
+      {toast.show && (
+        <div
+          className={`fixed top-5 right-5 sm:right-8 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] backdrop-blur-xl border animate-in fade-in slide-in-from-top-2 duration-300 ${
+            toast.type === 'error'
+              ? 'bg-rose-950/95 border-rose-500/40 text-rose-300'
+              : 'bg-emerald-950/95 border-emerald-500/40 text-emerald-300'
+          }`}
+        >
+          <span className="text-sm">{toast.type === 'error' ? '⚠️' : '✓'}</span>
+          <span className="text-xs font-bold tracking-tight">{toast.message}</span>
+        </div>
+      )}
 
       {/* ── Main Container (Comfortable spacing below fixed Navbar) ── */}
       <div
@@ -542,11 +598,19 @@ export default function CustomerProfile() {
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl sm:text-2xl font-black text-white">{userData.FullName}</h2>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
                   {userData.role} 
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-orange-400 hover:text-orange-300 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 px-2.5 py-1 rounded-xl transition-all cursor-pointer shadow-[0_0_12px_rgba(255,107,53,0.15)]"
+                >
+                  <Edit2 size={12} />
+                  <span>Edit Profile</span>
+                </button>
               </div>
               <p className="text-xs text-white/60 font-mono mt-0.5">
                 {userData.email} • {userData.contact}
@@ -592,8 +656,8 @@ export default function CustomerProfile() {
               />
               <TabButton
                 icon={<MapPin size={18} />}
-                label="Saved Addresses"
-                badge={`${addresses.length}`}
+                label="Service Address"
+                badge={isEditingAddress ? 'Editing' : 'Active'}
                 isActive={activeTab === 'addresses'}
                 onClick={() => setActiveTab('addresses')}
               />
@@ -1035,180 +1099,258 @@ export default function CustomerProfile() {
             )}
 
             {/* ══════════════════════════════════════════════════
-                TAB 2: SAVED ADDRESSES
+                TAB 2: SAVED ADDRESSES (EDIT SERVICE ADDRESS)
                ══════════════════════════════════════════════════ */}
             {activeTab === 'addresses' && (
               <div className="animate-in fade-in duration-300 space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-4 gap-4">
                   <div>
                     <h2 className="text-2xl font-bold text-white">
-                      Saved Service Addresses
+                      Service Address & Location
                     </h2>
                     <p className="text-xs sm:text-sm text-white/50 mt-0.5">
-                      Plumbers are dispatched directly to these pre-saved locations for {userData.FullName}.
+                      Verified residential dispatch address and GPS coordinates for {userData.FullName}.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddAddressModal(true)}
-                    className="inline-flex items-center gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-[#070E1A] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] cursor-pointer"
-                  >
-                    <span>+ Add New Address</span>
-                  </button>
-                </div>
-
-                {/* Add Address Mini Form */}
-                {showAddAddressModal && (
-                  <form
-                    onSubmit={handleAddAddress}
-                    className="bg-[#070E1A]/95 border border-cyan-500/40 rounded-2xl p-5 space-y-4 animate-in fade-in"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-cyan-400">Add New Service Location</h4>
+                  {isEditingAddress ? (
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setShowAddAddressModal(false)}
-                        className="text-white/40 hover:text-white text-xs"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
                       >
-                        ✕ Close
+                        ✕ Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveEditedAddress}
+                        disabled={isSavingAddress}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#070E1A] shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingAddress ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-[#070E1A] border-t-transparent rounded-full animate-spin" />
+                            <span>Saving…</span>
+                          </>
+                        ) : (
+                          <span>✓ Save Address</span>
+                        )}
                       </button>
                     </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingAddress(true)}
+                      className="inline-flex items-center gap-1.5 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] cursor-pointer"
+                    >
+                      <Edit2 size={14} />
+                      <span>Edit Service Address</span>
+                    </button>
+                  )}
+                </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Edit Address Form */}
+                {isEditingAddress ? (
+                  <form
+                    onSubmit={handleSaveEditedAddress}
+                    className="bg-[#070E1A]/95 border border-cyan-500/40 rounded-2xl p-5 sm:p-6 space-y-4 animate-in fade-in shadow-[0_10px_40px_rgba(0,0,0,0.5)]"
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={18} className="text-cyan-400" />
+                        <h4 className="font-bold text-sm text-cyan-400">Edit Service Address Details</h4>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                        Editing Active
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-white/70 mb-1">Address Label</label>
                         <select
-                          value={newAddr.type}
-                          onChange={(e) => setNewAddr({ ...newAddr, type: e.target.value })}
-                          className="w-full bg-[#0A1628] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                          value={addressEditForm.label}
+                          onChange={(e) => setAddressEditForm({ ...addressEditForm, label: e.target.value })}
+                          className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
                         >
                           <option value="Home">Home (Flat / Villa)</option>
-                          <option value="Office">Office / Commercial Space</option>
-                          <option value="Parent's House">Parent's House</option>
-                          <option value="Rental Property">Rental Property</option>
+                          <option value="office">Office / Commercial Space</option>
+                          <option value="apartment">Apartment / Society</option>
+                          <option value="Other">Other Location</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-white/70 mb-1">City & Pincode</label>
+                        <label className="block text-xs font-semibold text-white/70 mb-1">City / Region</label>
                         <input
                           type="text"
-                          value={newAddr.cityState}
-                          onChange={(e) => setNewAddr({ ...newAddr, cityState: e.target.value })}
-                          className="w-full bg-[#0A1628] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                          required
+                          placeholder="e.g. Burhanpur"
+                          value={addressEditForm.city}
+                          onChange={(e) => setAddressEditForm({ ...addressEditForm, city: e.target.value })}
+                          className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-white/70 mb-1">Postal PIN Code</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 450445"
+                          value={addressEditForm.pin_code}
+                          onChange={(e) => setAddressEditForm({ ...addressEditForm, pin_code: e.target.value })}
+                          className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
                         />
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-white/70 mb-1">
-                        Street Address / Flat / Floor
+                        Street Address / House / Flat / Floor
                       </label>
                       <input
                         type="text"
                         required
                         placeholder="e.g. Flat 301, Silver Crest, AB Road"
-                        value={newAddr.addressLine}
-                        onChange={(e) => setNewAddr({ ...newAddr, addressLine: e.target.value })}
-                        className="w-full bg-[#0A1628] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        value={addressEditForm.street}
+                        onChange={(e) => setAddressEditForm({ ...addressEditForm, street: e.target.value })}
+                        className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-white/70 mb-1">Nearby Landmark</label>
+                      <label className="block text-xs font-semibold text-white/70 mb-1">Nearby Landmark (Optional)</label>
                       <input
                         type="text"
                         placeholder="e.g. Near Geeta Bhawan Square"
-                        value={newAddr.landmark}
-                        onChange={(e) => setNewAddr({ ...newAddr, landmark: e.target.value })}
-                        className="w-full bg-[#0A1628] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                        value={addressEditForm.landmark}
+                        onChange={(e) => setAddressEditForm({ ...addressEditForm, landmark: e.target.value })}
+                        className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
                       />
+                    </div>
+
+                    {/* GPS Coordinates & Auto-detection */}
+                    <div className="bg-black/40 border border-cyan-500/20 rounded-xl p-3.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                        <div>
+                          <span className="text-[11px] font-bold text-cyan-400">Dispatch GPS Coordinates</span>
+                          <p className="text-[10px] text-white/40">Used for calculating plumber arrival ETA and route</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleDetectCustomerGPS}
+                          className="self-start sm:self-auto text-[10px] font-bold text-cyan-300 hover:text-cyan-200 bg-cyan-500/20 hover:bg-cyan-500/30 px-3 py-1.5 rounded-lg border border-cyan-500/40 transition-all cursor-pointer"
+                        >
+                          🎯 Auto-detect My GPS
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                        <div>
+                          <label className="block text-[10px] text-white/40 mb-1">Longitude</label>
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="e.g. 76.22"
+                            value={addressEditForm.longitude}
+                            onChange={(e) => setAddressEditForm({ ...addressEditForm, longitude: e.target.value })}
+                            className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-cyan-400 outline-none focus:border-cyan-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-white/40 mb-1">Latitude</label>
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="e.g. 21.31"
+                            value={addressEditForm.latitude}
+                            onChange={(e) => setAddressEditForm({ ...addressEditForm, latitude: e.target.value })}
+                            className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-cyan-400 outline-none focus:border-cyan-500"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">
                       <button
                         type="button"
-                        onClick={() => setShowAddAddressModal(false)}
-                        className="px-4 py-2 rounded-lg bg-white/5 text-xs text-white/70 hover:bg-white/10"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="px-4 py-2 rounded-xl bg-white/5 text-xs text-white/70 hover:bg-white/10 cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-[#070E1A] font-bold text-xs"
+                        disabled={isSavingAddress}
+                        className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#070E1A] font-bold text-xs cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.4)] disabled:opacity-50 transition-all"
                       >
-                        Save Address
+                        {isSavingAddress ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-[#070E1A] border-t-transparent rounded-full animate-spin" />
+                            <span>Saving Address…</span>
+                          </>
+                        ) : (
+                          <span>✓ Save Address Changes</span>
+                        )}
                       </button>
                     </div>
                   </form>
-                )}
-
-                {/* Addresses Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {addresses.map((a) => (
-                    <div
-                      key={a.id}
-                      className="bg-[#070E1A]/85 p-5 rounded-2xl border border-white/8 relative group hover:border-cyan-500/40 transition-all flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="inline-flex items-center gap-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 px-2.5 py-0.5 rounded-full text-xs font-bold">
-                            <MapPin size={12} />
-                            {a.type}
-                          </span>
-                          {a.isDefault && (
-                            <span className="text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
-                              Primary Location
+                ) : (
+                  /* Addresses Display View */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {addresses.map((a) => (
+                      <div
+                        key={a.id}
+                        className="bg-[#070E1A]/85 p-5 rounded-2xl border border-white/8 relative group hover:border-cyan-500/40 transition-all flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="inline-flex items-center gap-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                              <MapPin size={12} />
+                              {a.type}
                             </span>
-                          )}
+                            {a.isDefault && (
+                              <span className="text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+                                Primary Location
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="font-bold text-base text-white mb-1">
+                            {a.name}
+                          </p>
+                          <p className="text-xs text-white/65 leading-relaxed pr-6 mb-2">
+                            {a.addressLine}
+                            <br />
+                            {a.cityState}
+                          </p>
+                          <p className="text-[11px] text-white/45">
+                            <span className="text-white/60 font-semibold">Landmark:</span> {a.landmark}
+                          </p>
                         </div>
 
-                        <p className="font-bold text-base text-white mb-1">
-                          {a.name}
-                        </p>
-                        <p className="text-xs text-white/65 leading-relaxed pr-6 mb-2">
-                          {a.addressLine}
-                          <br />
-                          {a.cityState}
-                        </p>
-                        <p className="text-[11px] text-white/45">
-                          <span className="text-white/60 font-semibold">Landmark:</span> {a.landmark}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-white/8 pt-3.5 mt-4">
-                        <Link
-                          to="/customer/booking"
-                          className="text-xs font-bold text-cyan-400 hover:text-cyan-300 underline"
-                        >
-                          Book at this Location →
-                        </Link>
-                        <div className="flex gap-3">
+                        <div className="flex items-center justify-between border-t border-white/8 pt-3.5 mt-4">
+                          <Link
+                            to="/customer/booking"
+                            className="text-xs font-bold text-cyan-400 hover:text-cyan-300 underline"
+                          >
+                            Book at this Location →
+                          </Link>
                           <button
                             type="button"
-                            onClick={() =>
-                              alert(`Editing address for ${a.type}`)
-                            }
-                            className="flex items-center gap-1 text-white/60 hover:text-cyan-400 text-xs transition-colors cursor-pointer"
+                            onClick={() => {
+                              setIsEditingAddress(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-300 text-xs font-bold transition-all cursor-pointer"
                           >
                             <Edit2 size={13} />
-                            <span>Edit</span>
+                            <span>Edit Address</span>
                           </button>
-                          {!a.isDefault && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteAddress(a.id)}
-                              className="flex items-center gap-1 text-rose-400 hover:text-rose-300 text-xs transition-colors cursor-pointer"
-                            >
-                              <Trash2 size={13} />
-                              <span>Delete</span>
-                            </button>
-                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1289,6 +1431,54 @@ export default function CustomerProfile() {
                     </div>
                   </div>
 
+                  {/* Primary Service Address Fields */}
+                  <div className="bg-[#070E1A]/80 border border-white/8 rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                      <MapPin size={14} />
+                      <span>Primary Service Address</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-white/70 uppercase tracking-wider mb-2">
+                        Street Address / Flat / Building
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Flat 402, Golden Enclave, MG Road"
+                        value={profileForm.street}
+                        onChange={(e) => setProfileForm({ ...profileForm, street: e.target.value })}
+                        className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-white/70 uppercase tracking-wider mb-2">
+                          Operational City / Region
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Burhanpur"
+                          value={profileForm.city}
+                          onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
+                          className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-white/70 uppercase tracking-wider mb-2">
+                          Postal PIN Code
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 450445"
+                          value={profileForm.pin_code}
+                          onChange={(e) => setProfileForm({ ...profileForm, pin_code: e.target.value })}
+                          className="w-full bg-[#0A1628] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-white/70 uppercase tracking-wider mb-2">
                       Preferred Plumbing Time Window
@@ -1308,9 +1498,17 @@ export default function CustomerProfile() {
                   <div className="pt-2">
                     <button
                       type="submit"
-                      className="bg-cyan-500 hover:bg-cyan-400 text-[#070E1A] font-bold text-sm px-7 py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)] cursor-pointer"
+                      disabled={isSavingProfile}
+                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-[#070E1A] font-bold text-sm px-8 py-3.5 rounded-xl transition-all shadow-[0_0_24px_rgba(6,182,212,0.35)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] cursor-pointer disabled:opacity-50"
                     >
-                      Save Profile Changes
+                      {isSavingProfile ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-[#070E1A] border-t-transparent rounded-full animate-spin" />
+                          <span>Saving Profile Changes…</span>
+                        </>
+                      ) : (
+                        <span>✓ Save Profile & Address Changes</span>
+                      )}
                     </button>
                   </div>
                 </form>

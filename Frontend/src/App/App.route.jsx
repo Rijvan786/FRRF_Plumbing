@@ -20,6 +20,8 @@ import createService from "../features/admin/components/createService.jsx";
 import AdminDashboard from "../features/admin/pages/admin_Dashboard.jsx";
 import Customer_tracking from "../features/socketio/pages/customer_tracking.jsx";
 import AppLayout from "./AppLayout.jsx";
+import PaymentSuccess from "../features/technician/component/Payment-success.jsx";
+import Payment from "../features/technician/pages/Payment.jsx";
 
 export const router = createBrowserRouter([
   {
@@ -86,7 +88,47 @@ export const router = createBrowserRouter([
           </Protected>
         ),
       },
+      {
+        path: "/customer/payment/:OrderId",
+        element: (
+          <Protected>
+            <Payment />
+          </Protected>
+        ),
+      },
+      {
+        path: "/customer/payment-success",
+        element: (
+          <Protected>
+            <PaymentSuccess />
+          </Protected>
+        ),
+      },
     ],
+  },
+  {
+    path: "/payment/:OrderId",
+    element: (
+      <Protected>
+        <Payment />
+      </Protected>
+    ),
+  },
+  {
+    path: "/Payment-success",
+    element: (
+      <Protected>
+        <PaymentSuccess />
+      </Protected>
+    ),
+  },
+  {
+    path: "/payment-success",
+    element: (
+      <Protected>
+        <PaymentSuccess />
+      </Protected>
+    ),
   },
   {
     path: "/technician",
@@ -135,6 +177,18 @@ export const router = createBrowserRouter([
           </Protected>
         ),
       },
+    {
+      path:"/technician/payment/:OrderId",
+      element:(<Protected>
+        <Payment/>
+     </Protected>)
+    },
+      {
+        path: "/technician/payment-success",
+        element:(<Protected>
+          <PaymentSuccess />
+        </Protected>)
+      }
     ],
   },
   {

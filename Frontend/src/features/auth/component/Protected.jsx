@@ -14,8 +14,8 @@ const user=useSelector(state=>state.auth.User)
         const User=await handleGetME()
 
        if(User?.role ==="technician"){
-        navigate("/technician/TechnicianNotification")
-        return;
+        // navigate("/technician/TechnicianNotification")
+        
        }
 
        if(User?.role ==="admin"){

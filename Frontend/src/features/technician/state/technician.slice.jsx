@@ -14,6 +14,7 @@ const TechnicianSlice = createSlice({
     newJobOrderId: null,
     isTrackingActive: false,
     notifications: [],
+    paymentDetail: null,
   },
   reducers: {
     setTechnician: (state, action) => {
@@ -66,6 +67,15 @@ const TechnicianSlice = createSlice({
         target.unread = false;
       }
     },
+    markNotificationAccepted: (state, action) => {
+      const id = action.payload;
+      const target = state.notifications.find((n) => n.id === id || n.orderId === id || n.OrderId === id);
+      if (target) {
+        target.status = "Accepted";
+        target.isAccepted = true;
+        target.unread = false;
+      }
+    },
     dismissNotification: (state, action) => {
       const id = action.payload;
       state.notifications = state.notifications.filter(
@@ -74,6 +84,12 @@ const TechnicianSlice = createSlice({
     },
     clearTechError: (state) => {
       state.error = null;
+    },
+    setPaymentDetail: (state, action) => {
+      state.paymentDetail = action.payload;
+    },
+    clearPaymentDetail: (state) => {
+      state.paymentDetail = null;
     },
   },
 });
@@ -91,8 +107,11 @@ export const {
   setNotifications,
   addNotification,
   markNotificationRead,
+  markNotificationAccepted,
   dismissNotification,
   clearTechError,
+  setPaymentDetail,
+  clearPaymentDetail,
 } = TechnicianSlice.actions;
 
 export default TechnicianSlice.reducer;

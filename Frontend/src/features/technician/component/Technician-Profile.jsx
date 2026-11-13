@@ -85,7 +85,7 @@ const TabButton = ({ icon, label, badge, isActive, onClick }) => (
 export default function TechnicianProfile() {
   const navigate = useNavigate();
   const { handleGetME, handleLogout } = useAuth();
-  const { handleGetTechnician, handleToggleOnline, handleToggleAvailability } = useTechnician();
+  const { handleGetTechnician, handleToggleOnline,handleEditProfile } = useTechnician();
 
   // ── 4-Layer Architecture: Direct Redux Selectors (Layer 3: State) ──
   const reduxTechnician = useSelector((state) => state.technician?.technician || state.technician?.tech);
@@ -99,6 +99,25 @@ export default function TechnicianProfile() {
   const [activeTab, setActiveTab] = useState('overview'); // overview | kyc | skills | earnings
   const [visible, setVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // ── 3-Section Inline Edit States & Form Data ──
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ FullName: '', contact: '', experienceYears: 0 });
+
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({ street: '', city: '', pin_code: '', longitude: '', latitude: '' });
+
+  const [editingSkills, setEditingSkills] = useState(false);
+  const [skillsList, setSkillsList] = useState([]);
+  const [newSkillInput, setNewSkillInput] = useState('');
+
+  const [savingSection, setSavingSection] = useState(null); // 'profile' | 'address' | 'skills' | null
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
+  };
 
   // Entrance animation
   useEffect(() => {
@@ -152,6 +171,122 @@ export default function TechnicianProfile() {
     { day: 'Sun', amount: 7500, height: '100%' },
   ];
   const totalWeekly = weeklyEarnings.reduce((acc, curr) => acc + curr.amount, 0);
+
+  // ── Synchronize initial form values from Redux ──
+  useEffect(() => {
+    setProfileForm({
+      FullName: fullName,
+      contact: contact,
+      experienceYears: experienceYears,
+    });
+    setAddressForm({
+      street: address.street || '',
+      city: address.city || '',
+      pin_code: address.pin_code || '',
+      longitude: coordinates[0] !== undefined ? coordinates[0] : '',
+      latitude: coordinates[1] !== undefined ? coordinates[1] : '',
+    });
+    setSkillsList(skills);
+  }, [reduxTechnician, reduxUser]);
+
+  // ── Section 1: Save Personal Profile (calls PUT /edit-profile) ──
+  const handleSaveProfile = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setSavingSection('profile');
+      await handleEditProfile({
+        FullName: profileForm.FullName,
+        contact: profileForm.contact,
+        experienceYears: Number(profileForm.experienceYears) || 0,
+      });
+      setEditingProfile(false);
+      showToast('Personal information updated successfully!');
+      await handleGetTechnician();
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      showToast(err?.response?.data?.message || err?.message || 'Failed to update personal info', 'error');
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  // ── Section 2: Save Permanent Address & KYC (calls PUT /edit-profile) ──
+  const handleSaveAddress = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setSavingSection('address');
+      await handleEditProfile({
+        street: addressForm.street,
+        city: addressForm.city,
+        pin_code: addressForm.pin_code,
+        longitude: addressForm.longitude !== '' ? Number(addressForm.longitude) : undefined,
+        latitude: addressForm.latitude !== '' ? Number(addressForm.latitude) : undefined,
+      });
+      setEditingAddress(false);
+      showToast('Permanent address & GPS coordinates updated successfully!');
+      await handleGetTechnician();
+    } catch (err) {
+      console.error('Failed to update address:', err);
+      showToast(err?.response?.data?.message || err?.message || 'Failed to update address', 'error');
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  // Auto-detect browser GPS coordinates
+  const handleDetectGPS = () => {
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser', 'error');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setAddressForm((prev) => ({
+          ...prev,
+          longitude: Number(pos.coords.longitude.toFixed(6)),
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+        }));
+        showToast('Current GPS detected!');
+      },
+      (err) => {
+        showToast('Could not fetch GPS: ' + err.message, 'error');
+      }
+    );
+  };
+
+  // ── Section 3: Save Certified Skills (calls PUT /edit-profile) ──
+  const handleSaveSkills = async (customSkills) => {
+    const listToSave = customSkills || skillsList;
+    try {
+      setSavingSection('skills');
+      await handleEditProfile({
+        skills: listToSave,
+      });
+      setEditingSkills(false);
+      showToast('Certified skills updated successfully!');
+      await handleGetTechnician();
+    } catch (err) {
+      console.error('Failed to update skills:', err);
+      showToast(err?.response?.data?.message || err?.message || 'Failed to update skills', 'error');
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleAddSkill = (skillToAdd) => {
+    const trimmed = (skillToAdd || newSkillInput).trim();
+    if (!trimmed) return;
+    if (skillsList.includes(trimmed)) {
+      showToast('Skill already in your profile', 'error');
+      return;
+    }
+    setSkillsList([...skillsList, trimmed]);
+    setNewSkillInput('');
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setSkillsList(skillsList.filter((s) => s !== skillToRemove));
+  };
 
   const onLogoutClick = async () => {
     try {
@@ -389,8 +524,22 @@ export default function TechnicianProfile() {
           </aside>
 
           {/* ================= RIGHT: MAIN CONTENT ================= */}
-          <main className="flex-1 w-full bg-[#0A1628]/85 backdrop-blur-2xl border border-white/12 rounded-3xl p-5 sm:p-7 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] min-h-[550px] flex flex-col">
+          <main className="flex-1 w-full bg-[#0A1628]/85 backdrop-blur-2xl border border-white/12 rounded-3xl p-5 sm:p-7 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] min-h-[550px] flex flex-col relative">
             
+            {/* ── Toast Notification Pill ── */}
+            {toast.show && (
+              <div
+                className={`absolute top-4 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl border animate-in fade-in slide-in-from-top-2 duration-300 ${
+                  toast.type === 'error'
+                    ? 'bg-rose-950/95 border-rose-500/40 text-rose-300'
+                    : 'bg-emerald-950/95 border-emerald-500/40 text-emerald-300'
+                }`}
+              >
+                <span className="text-sm">{toast.type === 'error' ? '⚠️' : '✓'}</span>
+                <span className="text-xs font-bold tracking-tight">{toast.message}</span>
+              </div>
+            )}
+
             {/* ════ TAB 1: PROFILE OVERVIEW ════ */}
             {activeTab === 'overview' && (
               <div className="space-y-6 animate-in fade-in duration-300">
@@ -398,145 +547,605 @@ export default function TechnicianProfile() {
                   <div>
                     <h2 className="text-xl sm:text-2xl font-black text-white">Technician Profile Overview</h2>
                     <p className="text-xs sm:text-sm text-white/50 mt-0.5">
-                      Real-time partner verification, contact channels and active dispatch status.
+                      Real-time partner verification, personal information and active dispatch status.
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleGetTechnician()}
-                    className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-cyan-400 cursor-pointer"
-                  >
-                    <svg className={`w-3.5 h-3.5 ${reduxLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>Refresh</span>
-                  </button>
-                </div>
-
-                {/* Profile Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
-                    <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Partner Full Name</p>
-                    <p className="text-base font-bold text-white">{fullName}</p>
-                    <p className="text-xs text-cyan-400 font-semibold mt-1">Role: {role}</p>
-                  </div>
-
-                  <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
-                    <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Verified Contact Channel</p>
-                    <p className="text-base font-bold text-white font-mono">{contact}</p>
-                    <p className="text-xs text-white/50 font-mono mt-1">{email}</p>
-                  </div>
-
-                  <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
-                    <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Experience & Rating</p>
-                    <p className="text-base font-bold text-emerald-400">{experienceYears} Years Certified Experience</p>
-                    <p className="text-xs text-amber-400 font-semibold mt-1">★ {rating} Rating (Top 1% Plumber)</p>
-                  </div>
-
-                  <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
-                    <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Current Operational Base</p>
-                    <p className="text-base font-bold text-white">{city}</p>
-                    <p className="text-xs text-white/50 truncate mt-1">{street} (PIN {pinCode})</p>
-                  </div>
-                </div>
-
-                {/* Telemetry & GPS Card */}
-                <div className="bg-gradient-to-br from-[#0c1e38] to-[#0A1628] border border-cyan-500/30 rounded-2xl p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-                      <h3 className="text-sm sm:text-base font-black text-white">Live GPS Dispatch Coordinates</h3>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                      Active GeoJSON
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/60 leading-relaxed mb-3">
-                    Your real-time coordinates are automatically shared with customers when you accept a job to calculate precise ETA and distance.
-                  </p>
-                  <div className="flex items-center gap-4 text-xs font-mono bg-black/30 border border-white/10 rounded-xl px-4 py-2.5">
-                    <div>
-                      <span className="text-white/40">Longitude: </span>
-                      <span className="text-cyan-400 font-bold">{coordinates[0] || '0.0000'}</span>
-                    </div>
-                    <div>
-                      <span className="text-white/40">Latitude: </span>
-                      <span className="text-cyan-400 font-bold">{coordinates[1] || '0.0000'}</span>
-                    </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                    {editingProfile ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(false)}
+                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
+                        >
+                          ✕ Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveProfile}
+                          disabled={savingSection === 'profile'}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-[0_0_20px_rgba(255,107,53,0.4)] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {savingSection === 'profile' ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Saving…</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✓</span>
+                              <span>Save Changes</span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleGetTechnician()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-cyan-400 cursor-pointer"
+                        >
+                          <svg className={`w-3.5 h-3.5 ${reduxLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          <span>Refresh</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(true)}
+                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-xs font-bold text-orange-400 hover:text-orange-300 transition-all cursor-pointer shadow-[0_0_15px_rgba(255,107,53,0.15)]"
+                        >
+                          <span>✏️</span>
+                          <span>Edit Information</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {/* Profile Form / Details View */}
+                {editingProfile ? (
+                  <form onSubmit={handleSaveProfile} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Field 1: Full Name */}
+                      <div className="bg-[#070E1A]/90 border border-orange-500/30 rounded-2xl p-4 sm:p-5 focus-within:border-orange-500/70 transition-all shadow-inner">
+                        <label className="block text-[10px] uppercase font-bold text-orange-400 tracking-wider mb-1.5">
+                          Partner Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.FullName}
+                          onChange={(e) => setProfileForm({ ...profileForm, FullName: e.target.value })}
+                          placeholder="e.g. Anil Mahajan"
+                          required
+                          className="w-full bg-white/5 border border-white/12 focus:border-orange-500/60 focus:bg-white/8 rounded-xl px-3.5 py-2.5 text-sm text-white font-semibold outline-none transition-all"
+                        />
+                        <p className="text-[11px] text-white/40 mt-1">Official name displayed to customers upon dispatch</p>
+                      </div>
+
+                      {/* Field 2: Contact Number */}
+                      <div className="bg-[#070E1A]/90 border border-cyan-500/30 rounded-2xl p-4 sm:p-5 focus-within:border-cyan-500/70 transition-all shadow-inner">
+                        <label className="block text-[10px] uppercase font-bold text-cyan-400 tracking-wider mb-1.5">
+                          Verified Contact Number
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.contact}
+                          onChange={(e) => setProfileForm({ ...profileForm, contact: e.target.value })}
+                          placeholder="e.g. +91 9876543210"
+                          required
+                          className="w-full bg-white/5 border border-white/12 focus:border-cyan-500/60 focus:bg-white/8 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono font-semibold outline-none transition-all"
+                        />
+                        <p className="text-[11px] text-white/40 mt-1">Direct emergency contact channel for orders</p>
+                      </div>
+
+                      {/* Field 3: Experience Years */}
+                      <div className="bg-[#070E1A]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 focus-within:border-emerald-500/70 transition-all shadow-inner">
+                        <label className="block text-[10px] uppercase font-bold text-emerald-400 tracking-wider mb-1.5">
+                          Certified Experience (Years)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={profileForm.experienceYears}
+                            onChange={(e) => setProfileForm({ ...profileForm, experienceYears: e.target.value })}
+                            className="w-32 bg-white/5 border border-white/12 focus:border-emerald-500/60 focus:bg-white/8 rounded-xl px-3.5 py-2.5 text-sm text-emerald-400 font-bold outline-none transition-all"
+                          />
+                          <span className="text-xs text-white/60">Years in active plumbing operations</span>
+                        </div>
+                        <p className="text-[11px] text-white/40 mt-1.5">Calculates customer trust badges & master rating</p>
+                      </div>
+
+                      {/* Field 4: Read-Only Account Identity */}
+                      <div className="bg-[#070E1A]/60 border border-white/10 rounded-2xl p-4 sm:p-5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">Account Identity</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/60 font-mono">LOCKED</span>
+                        </div>
+                        <p className="text-sm font-semibold text-white/70 font-mono">{email}</p>
+                        <p className="text-xs text-cyan-400 mt-1 font-semibold">Assigned Role: {role}</p>
+                      </div>
+                    </div>
+
+                    {/* Bottom Save Action Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-orange-500/10 via-transparent to-cyan-500/10 border border-orange-500/25 rounded-2xl p-4 mt-2">
+                      <div className="text-xs text-white/70">
+                        <span className="text-orange-400 font-bold">Ready to update?</span> Changes will instantly sync with backend and refresh your profile.
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(false)}
+                          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingSection === 'profile'}
+                          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-xs shadow-[0_0_20px_rgba(255,107,53,0.4)] cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {savingSection === 'profile' ? 'Saving…' : 'Save Profile Changes →'}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    {/* Read-Only Profile Details Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
+                        <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Partner Full Name</p>
+                        <p className="text-base font-bold text-white">{fullName}</p>
+                        <p className="text-xs text-cyan-400 font-semibold mt-1">Role: {role}</p>
+                      </div>
+
+                      <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
+                        <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Verified Contact Channel</p>
+                        <p className="text-base font-bold text-white font-mono">{contact}</p>
+                        <p className="text-xs text-white/50 font-mono mt-1">{email}</p>
+                      </div>
+
+                      <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
+                        <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Experience & Rating</p>
+                        <p className="text-base font-bold text-emerald-400">{experienceYears} Years Certified Experience</p>
+                        <p className="text-xs text-amber-400 font-semibold mt-1">★ {rating} Rating (Top 1% Plumber)</p>
+                      </div>
+
+                      <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-4 sm:p-5">
+                        <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1">Current Operational Base</p>
+                        <p className="text-base font-bold text-white">{city}</p>
+                        <p className="text-xs text-white/50 truncate mt-1">{street} (PIN {pinCode})</p>
+                      </div>
+                    </div>
+
+                    {/* Telemetry & GPS Card */}
+                    <div className="bg-gradient-to-br from-[#0c1e38] to-[#0A1628] border border-cyan-500/30 rounded-2xl p-4 sm:p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                          <h3 className="text-sm sm:text-base font-black text-white">Live GPS Dispatch Coordinates</h3>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                          Active GeoJSON
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/60 leading-relaxed mb-3">
+                        Your real-time coordinates are automatically shared with customers when you accept a job to calculate precise ETA and distance.
+                      </p>
+                      <div className="flex items-center gap-4 text-xs font-mono bg-black/30 border border-white/10 rounded-xl px-4 py-2.5">
+                        <div>
+                          <span className="text-white/40">Longitude: </span>
+                          <span className="text-cyan-400 font-bold">{coordinates[0] || '0.0000'}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40">Latitude: </span>
+                          <span className="text-cyan-400 font-bold">{coordinates[1] || '0.0000'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {/* ════ TAB 2: PERMANENT ADDRESS & KYC ════ */}
             {activeTab === 'kyc' && (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="pb-4 border-b border-white/10">
-                  <h2 className="text-xl sm:text-2xl font-black text-white">Permanent Address & Police KYC</h2>
-                  <p className="text-xs sm:text-sm text-white/50 mt-0.5">
-                    Official address records filed during technician partner onboarding.
-                  </p>
-                </div>
-
-                <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-5 sm:p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MapPin size={20} className="text-cyan-400" />
-                      <h3 className="text-base font-bold text-white">Registered Permanent Residence</h3>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      {isVerifiedTech ? 'KYC Verified' : 'Pending Verification'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                      <p className="text-[10px] text-white/40 uppercase font-bold">Street Address</p>
-                      <p className="text-sm font-semibold text-white mt-1">{street || 'Not provided'}</p>
-                    </div>
-                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                      <p className="text-[10px] text-white/40 uppercase font-bold">City / Operational Hub</p>
-                      <p className="text-sm font-semibold text-white mt-1">{city || 'Not provided'}</p>
-                    </div>
-                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                      <p className="text-[10px] text-white/40 uppercase font-bold">Postal PIN Code</p>
-                      <p className="text-sm font-semibold text-white mt-1">{pinCode || 'Not provided'}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3.5 flex items-center gap-3">
-                    <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
-                    <p className="text-xs text-emerald-300">
-                      Background and police verification cleared. Partner is eligible for residential emergency plumbing dispatches.
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-3">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-white">Permanent Address & Police KYC</h2>
+                    <p className="text-xs sm:text-sm text-white/50 mt-0.5">
+                      Official address records and live dispatch coordinates filed for technician verification.
                     </p>
                   </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {editingAddress ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditingAddress(false)}
+                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
+                        >
+                          ✕ Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveAddress}
+                          disabled={savingSection === 'address'}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {savingSection === 'address' ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Saving…</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✓</span>
+                              <span>Save Address</span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingAddress(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-all cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+                      >
+                        <span>📍</span>
+                        <span>Change Address & Location</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {editingAddress ? (
+                  <form onSubmit={handleSaveAddress} className="space-y-4">
+                    <div className="bg-[#070E1A]/90 border border-cyan-500/30 rounded-2xl p-5 sm:p-6 space-y-4 shadow-inner">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MapPin size={20} className="text-cyan-400" />
+                          <h3 className="text-base font-bold text-white">Edit Permanent Residence</h3>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                          Editing Mode
+                        </span>
+                      </div>
+
+                      {/* Street Address */}
+                      <div>
+                        <label className="block text-[10px] text-white/50 uppercase font-bold mb-1.5">
+                          Street Address / House / Landmark
+                        </label>
+                        <input
+                          type="text"
+                          value={addressForm.street}
+                          onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                          placeholder="e.g. Master Technician HQ, Phopnar kalan"
+                          className="w-full bg-white/5 border border-white/12 focus:border-cyan-500/60 focus:bg-white/8 rounded-xl px-3.5 py-2.5 text-sm text-white font-medium outline-none transition-all"
+                        />
+                      </div>
+
+                      {/* City & PIN */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] text-white/50 uppercase font-bold mb-1.5">
+                            City / Operational Hub
+                          </label>
+                          <input
+                            type="text"
+                            value={addressForm.city}
+                            onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                            placeholder="e.g. Burhanpur"
+                            className="w-full bg-white/5 border border-white/12 focus:border-cyan-500/60 focus:bg-white/8 rounded-xl px-3.5 py-2.5 text-sm text-white font-medium outline-none transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-white/50 uppercase font-bold mb-1.5">
+                            Postal PIN Code
+                          </label>
+                          <input
+                            type="text"
+                            value={addressForm.pin_code}
+                            onChange={(e) => setAddressForm({ ...addressForm, pin_code: e.target.value })}
+                            placeholder="e.g. 450445"
+                            className="w-full bg-white/5 border border-white/12 focus:border-cyan-500/60 focus:bg-white/8 rounded-xl px-3.5 py-2.5 text-sm text-white font-medium outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* GPS Coordinates Section */}
+                      <div className="pt-3 border-t border-white/10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                          <div>
+                            <p className="text-xs font-bold text-white">Live Dispatch GPS Coordinates</p>
+                            <p className="text-[11px] text-white/40">Used for customer proximity dispatch calculation</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleDetectGPS}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs font-bold text-cyan-300 transition-all cursor-pointer self-start sm:self-auto"
+                          >
+                            <span>🎯</span>
+                            <span>Auto-detect My GPS</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-mono text-cyan-400 mb-1">Longitude</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={addressForm.longitude}
+                              onChange={(e) => setAddressForm({ ...addressForm, longitude: e.target.value })}
+                              placeholder="76.220000"
+                              className="w-full bg-black/40 border border-white/12 focus:border-cyan-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-cyan-300 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono text-cyan-400 mb-1">Latitude</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={addressForm.latitude}
+                              onChange={(e) => setAddressForm({ ...addressForm, latitude: e.target.value })}
+                              placeholder="21.310000"
+                              className="w-full bg-black/40 border border-white/12 focus:border-cyan-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-cyan-300 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Save Action Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-cyan-500/10 via-transparent to-blue-500/10 border border-cyan-500/25 rounded-2xl p-4">
+                      <div className="text-xs text-white/70">
+                        <span className="text-cyan-400 font-bold">Address change ready:</span> Click Save Address to update your official technician record.
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAddress(false)}
+                          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingSection === 'address'}
+                          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold text-xs shadow-[0_0_20px_rgba(6,182,212,0.4)] cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {savingSection === 'address' ? 'Saving…' : 'Save Address →'}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="bg-[#070E1A]/80 border border-white/10 rounded-2xl p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={20} className="text-cyan-400" />
+                        <h3 className="text-base font-bold text-white">Registered Permanent Residence</h3>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        {isVerifiedTech ? 'KYC Verified' : 'Pending Verification'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p className="text-[10px] text-white/40 uppercase font-bold">Street Address</p>
+                        <p className="text-sm font-semibold text-white mt-1">{street || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p className="text-[10px] text-white/40 uppercase font-bold">City / Operational Hub</p>
+                        <p className="text-sm font-semibold text-white mt-1">{city || 'Not provided'}</p>
+                      </div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p className="text-[10px] text-white/40 uppercase font-bold">Postal PIN Code</p>
+                        <p className="text-sm font-semibold text-white mt-1">{pinCode || 'Not provided'}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3.5 flex items-center gap-3">
+                      <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
+                      <p className="text-xs text-emerald-300">
+                        Background and police verification cleared. Partner is eligible for residential emergency plumbing dispatches.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* ════ TAB 3: CERTIFIED SKILLS ════ */}
             {activeTab === 'skills' && (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="pb-4 border-b border-white/10">
-                  <h2 className="text-xl sm:text-2xl font-black text-white">Certified Plumbing Skills</h2>
-                  <p className="text-xs sm:text-sm text-white/50 mt-0.5">
-                    Skill credentials determining priority assignment for specialized repair calls.
-                  </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-3">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-white">Certified Plumbing Skills</h2>
+                    <p className="text-xs sm:text-sm text-white/50 mt-0.5">
+                      Skill credentials determining priority assignment for specialized repair calls.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {editingSkills ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditingSkills(false)}
+                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/70 hover:text-white transition-all cursor-pointer"
+                        >
+                          ✕ Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSkills()}
+                          disabled={savingSection === 'skills'}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {savingSection === 'skills' ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Saving…</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✓</span>
+                              <span>Save Skills</span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingSkills(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                      >
+                        <span>🔧</span>
+                        <span>Manage & Edit Skills</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {skills.map((skill, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 bg-[#070E1A]/80 border border-white/10 hover:border-cyan-500/40 rounded-2xl p-4 transition-all"
-                    >
-                      <span className="text-2xl p-2 bg-white/5 rounded-xl">🔧</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{skill}</p>
-                        <p className="text-[11px] text-emerald-400 font-semibold">ISO 9001 Certified Master</p>
+                {editingSkills ? (
+                  <div className="space-y-5">
+                    {/* Input Bar to Add Skills */}
+                    <div className="bg-[#070E1A]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-inner">
+                      <label className="block text-[10px] font-bold uppercase text-emerald-400 tracking-wider mb-2">
+                        Add New Certified Skill
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newSkillInput}
+                          onChange={(e) => setNewSkillInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSkill();
+                            }
+                          }}
+                          placeholder="e.g. Wall Seepage Detection, CPVC Piping, RO Water Purifier"
+                          className="flex-1 bg-white/5 border border-white/12 focus:border-emerald-500/60 focus:bg-white/8 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddSkill()}
+                          className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0"
+                        >
+                          + Add Skill
+                        </button>
+                      </div>
+
+                      {/* Quick Suggestions */}
+                      <div className="mt-3">
+                        <p className="text-[11px] text-white/40 mb-1.5">Quick suggestion tags (click to add):</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            'Leak Detection & Wall Seepage',
+                            'Overhead Tank Installation',
+                            'CPVC & PVC Piping',
+                            'Sanitary & Tap Fittings',
+                            'Water Heater & Geyser Repair',
+                            'Drain Snaking & Blockage',
+                            'RO Water Purifier Service',
+                            'Bathroom Renovation',
+                          ].map((suggestion, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleAddSkill(suggestion)}
+                              className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-white/5 hover:bg-emerald-500/15 border border-white/10 hover:border-emerald-500/30 text-white/70 hover:text-emerald-300 transition-all cursor-pointer"
+                            >
+                              + {suggestion}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    {/* Interactive Skills Cards with Remove action */}
+                    <div>
+                      <p className="text-xs font-bold text-white/70 uppercase tracking-wider mb-2">
+                        Active Skills on Profile ({skillsList.length})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {skillsList.map((skill, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-3 bg-[#070E1A]/80 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl p-4 transition-all"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-2xl p-2 bg-emerald-500/10 rounded-xl shrink-0">🔧</span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-white truncate">{skill}</p>
+                                <p className="text-[11px] text-emerald-400 font-semibold">ISO 9001 Certified Master</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSkill(skill)}
+                              className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 p-2 rounded-xl border border-transparent hover:border-rose-500/30 transition-all cursor-pointer shrink-0"
+                              title="Remove skill"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Bottom Save Action Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-500/10 via-transparent to-cyan-500/10 border border-emerald-500/25 rounded-2xl p-4">
+                      <div className="text-xs text-white/70">
+                        <span className="text-emerald-400 font-bold">Skills updated:</span> Click Save Skills to update the database for job matching.
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditingSkills(false)}
+                          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSkills()}
+                          disabled={savingSection === 'skills'}
+                          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs shadow-[0_0_20px_rgba(16,185,129,0.4)] cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {savingSection === 'skills' ? 'Saving…' : 'Save Skills →'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {skills.map((skill, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 bg-[#070E1A]/80 border border-white/10 hover:border-cyan-500/40 rounded-2xl p-4 transition-all"
+                      >
+                        <span className="text-2xl p-2 bg-white/5 rounded-xl">🔧</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white truncate">{skill}</p>
+                          <p className="text-[11px] text-emerald-400 font-semibold">ISO 9001 Certified Master</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

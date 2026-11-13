@@ -43,7 +43,7 @@ export const useTrackSocket = ({ OrderId }) => {
 
   useEffect(() => {
     customerLocationRef.current = customerLocation;
-  }, [customerLocation]);
+  },[customerLocation]);
 
   // 1. Fetch Order details from backend on mount & extract customer & technician location
   useEffect(() => {
@@ -76,6 +76,7 @@ export const useTrackSocket = ({ OrderId }) => {
               longitude: Number(coords[0]),
               latitude: Number(coords[1]),
             };
+            console.log(customerLocation,"");
             dispatch(setCustomerLocation(custLoc));
             customerLocationRef.current = custLoc;
           } else if (order?.address?.latitude && order?.address?.longitude) {
@@ -83,6 +84,7 @@ export const useTrackSocket = ({ OrderId }) => {
               latitude: Number(order.address.latitude),
               longitude: Number(order.address.longitude),
             };
+            console.log(customerLocation)
             dispatch(setCustomerLocation(custLoc));
             customerLocationRef.current = custLoc;
           }
@@ -130,7 +132,7 @@ export const useTrackSocket = ({ OrderId }) => {
 
     // Handler when technician transmits GPS location
     const handleReceiveLocation = (data) => {
-      console.log("✅ Plumber location received via socket:::::", data);
+      console.log("✅ Plumber location received via socket", data);
       if (data && data.latitude !== undefined && data.longitude !== undefined) {
         const techLoc = {
           latitude: Number(data.latitude),

@@ -61,3 +61,8 @@ export async function GetMe(){
     return response.data
 }
 
+export async function EditCustomerProfile(payload) {
+    const response = await api.put("/edit-profile", payload);
+    return response.data;
+}
+

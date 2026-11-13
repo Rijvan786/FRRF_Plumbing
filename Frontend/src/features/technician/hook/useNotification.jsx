@@ -67,7 +67,8 @@ export function useNotification({ technicianId, userId }) {
             time: "Just now",
             urgent: true,
             unread: true,
-            status: data?.status || "Pending",
+            status: data?.status || data?.order?.status || "Pending",
+            isAccepted: (data?.status || data?.order?.status) === "Accepted" || (data?.status || data?.order?.status) === "Working" || !!data?.order?.technicianId,
           })
         );
       }

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import priceSchema from "./price.model";
+import priceSchema from "./price.model.js";
 
 const PaymentSchema=mongoose.Schema({
     status:{
@@ -20,6 +20,16 @@ const PaymentSchema=mongoose.Schema({
         type:mongoose.Schema.Types.ObjectId,
         ref:"user"
     },
+    accordingToWork:{
+        type:String,
+        required:true
+        
+    },
+    PaymentType:{
+        type:String,
+        enum:["cash","online"],
+        default:null
+    },
     Order_details:{
       type:mongoose.Schema.Types.ObjectId,
       ref:"order"  
@@ -29,8 +39,8 @@ const PaymentSchema=mongoose.Schema({
     timestamps:true
 })
 
-paymentSchema.index({ transactionId: 1 });
-paymentSchema.index({ orderId: 1 });
+PaymentSchema.index({ transactionId: 1 });
+PaymentSchema.index({ orderId: 1 });
 
 const PaymentModel=mongoose.model("payment",PaymentSchema)
 

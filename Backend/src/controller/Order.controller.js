@@ -108,7 +108,7 @@ export async function CreateOrderController(req, res) {
       customer: req.user?.FullName || req.user?.name || street || "Customer",
       phone: req.user?.contact || req.user?.phone || "",
       street: street,
-      city: city,
+      city: city,   
       pinCode: pin_code,
       location: [street, city, pin_code].filter(Boolean).join(", "),
       coordinates: [parseFloat(longitude) || 72.8777, parseFloat(latitude) || 19.0760],

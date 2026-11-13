@@ -118,7 +118,7 @@ export default function Forgetmail() {
                 <div className="text-emerald-400/70 text-xs mt-0.5">
                   Check your email inbox or spam folder.{' '}
                   <Link
-                    to="/customer/forget-password"
+                    to="/forget-password"
                     className="underline text-emerald-300 font-semibold"
                   >
                     Click here to set new password →
@@ -207,7 +207,7 @@ export default function Forgetmail() {
               ← Back to Sign In
             </Link>
             <Link
-              to="/customer/forget-password"
+              to="/forget-password"
               className="text-white/60 hover:text-white transition-colors"
             >
               Already have OTP/Reset? →

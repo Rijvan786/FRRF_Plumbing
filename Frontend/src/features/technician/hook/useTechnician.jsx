@@ -1,6 +1,8 @@
 import { useDispatch } from "react-redux";
 import { setLoading as setAuthLoading, setUser } from "../../auth/state/auth.slice.jsx";
-import { GetTechnician, TechRegister, AcceptJob, GetTechnicianNotifications } from "../services/technician.api.jsx";
+import { GetTechnician, TechRegister, AcceptJob, GetTechnicianNotifications,
+   CreateOrderPayment, VerifyOrder, GetPaymentDetail, ToggleOnlineStatus, EditTechnicianProfile,
+ } from "../services/technician.api.jsx";
 import {
   setTechnician,
   setTechnicianProfile,
@@ -10,8 +12,8 @@ import {
   setIsAvailable,
   setNotifications,
   setNewJobOrderId,
+  setPaymentDetail,
 } from "../state/technician.slice.jsx";
-
 export function useTechnician() {
   const dispatch = useDispatch();
 
@@ -112,15 +114,8 @@ export function useTechnician() {
     }
   };
 
-  const handleToggleOnline = (status) => {
-    dispatch(setIsOnline(status));
-  };
 
-  const handleToggleAvailability = (status) => {
-    dispatch(setIsAvailable(status));
-  };
-
-  const handleGetNotifications = async () => {
+   const handleGetNotifications = async () => {
     try {
       const data = await GetTechnicianNotifications();
       if (data?.notifications && Array.isArray(data.notifications)) {
@@ -137,6 +132,91 @@ export function useTechnician() {
     }
   };
 
+  const handleCreateOrderPayment=async({accordingToWork,amount,PaymentType,currency,OrderId})=>{
+      try{
+        const data=await CreateOrderPayment({accordingToWork,amount,PaymentType,currency,OrderId})
+        return data
+      }
+      catch(error){
+        console.error("Error in handleCreateOrderPayment in useTechnician:", error);
+        throw error;
+      }
+  }
+  const handleVerifyOrder = async ({ razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId }) => {
+    try {
+      const data = await VerifyOrder({ razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId });
+      return data;
+    } catch (error) {
+      console.error("Error in handleVerifyOrder in useTechnician:", error);
+      throw error;
+    }
+  };
+
+  const handleGetPaymentDetail = async (OrderId) => {
+    try {
+      dispatch(setTechLoading(true));
+      const data = await GetPaymentDetail(OrderId);
+      if (data) {
+        dispatch(setPaymentDetail(data));
+      }
+      return data;
+    } catch (error) {
+      console.error("Error in handleGetPaymentDetail in useTechnician:", error);
+      dispatch(setTechError(error?.response?.data?.message || error?.message));
+      throw error;
+    } finally {
+      dispatch(setTechLoading(false));
+    }
+  };
+
+  const handleToggleOnline = async (status) => {
+    try {
+      dispatch(setTechLoading(true));
+      const data = await ToggleOnlineStatus({ isOnline: status });
+      if (data?.isOnline !== undefined) {
+        dispatch(setIsOnline(data.isOnline));
+      }
+      if (data?.technician) {
+        dispatch(setTechnicianProfile(data.technician));
+        dispatch(setTechnician(data.technician));
+      }
+      return data;
+    } catch (error) {
+      console.error('Error in handleToggleOnline in useTechnician:', error);
+      dispatch(setTechError(error?.response?.data?.message || error?.message));
+      throw error;
+    } finally {
+      dispatch(setTechLoading(false));
+    }
+  };
+
+  const handleToggleAvailability = (status) => {
+    dispatch(setIsAvailable(status));
+  };
+
+  // Edit Technician Profile (API call)
+  const handleEditProfile = async (payload) => {
+    try {
+      dispatch(setTechLoading(true));
+      const data = await EditTechnicianProfile(payload);
+      // Update Redux with new profile data
+      if (data?.technician) {
+        dispatch(setTechnician(data.technician));
+        dispatch(setTechnicianProfile(data.technician));
+        if (data.technician.userId && typeof data.technician.userId === 'object') {
+          dispatch(setUser(data.technician.userId));
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error('Error in handleEditProfile in useTechnician:', error);
+      dispatch(setTechError(error?.response?.data?.message || error?.message));
+      throw error;
+    } finally {
+      dispatch(setTechLoading(false));
+    }
+  };
+
   return {
     handleTechRegister,
     handleGetTechnician,
@@ -144,6 +224,10 @@ export function useTechnician() {
     handleToggleOnline,
     handleToggleAvailability,
     handleGetNotifications,
+    handleCreateOrderPayment,
+    handleVerifyOrder,
+    handleGetPaymentDetail,
+    handleEditProfile,
   };
 }
 

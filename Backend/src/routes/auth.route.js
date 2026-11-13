@@ -48,8 +48,7 @@ router.get("/google/callback",passport.authenticate("google",{session:false,fail
 GoogleCallback
 )
 
-
-router.patch("/profileEdit",AuthenticateUser,ProfileEditController)
+router.put("/edit-profile", AuthenticateUser, ProfileEditController);
 
 
 

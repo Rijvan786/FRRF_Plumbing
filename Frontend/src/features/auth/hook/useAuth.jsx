@@ -1,7 +1,7 @@
 
 import {useDispatch}  from "react-redux"
 import { setError, setLoading, setUser } from "../state/auth.slice"
-import { ForgetMail, ForgetPassword, GetMe, Login, Logout, Register, ResendMail } from "../service/auth.api.jsx"
+import { ForgetMail, ForgetPassword, GetMe, Login, Logout, Register, ResendMail, EditCustomerProfile } from "../service/auth.api.jsx"
 import { useEffect } from "react"
 
 export  function useAuth(){
@@ -155,6 +155,23 @@ const handleGetME=async ()=>{
     }
 }
 
+const handleEditCustomerProfile = async (payload) => {
+    try {
+        dispatch(setLoading(true));
+        const data = await EditCustomerProfile(payload);
+        if (data?.user) {
+            dispatch(setUser(data.user));
+        }
+        return data;
+    } catch (error) {
+        console.log(`Error in handleEditCustomerProfile in useAuth ${error}`);
+        dispatch(setError(error?.response?.data?.message || error?.message));
+        throw error;
+    } finally {
+        dispatch(setLoading(false));
+    }
+};
+
 
 return   {
            handleRegister,
@@ -163,7 +180,7 @@ return   {
           handleForgetMail,
           handleForgetPassword,
           handleLogout,
-          handleGetME
-
+          handleGetME,
+          handleEditCustomerProfile,
 }
 }

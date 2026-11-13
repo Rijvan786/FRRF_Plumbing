@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import UserModel from "../models/auth.model.js";
 import TechnicianProfileModel from "../models/Technicianprofile.model.js";
 import { SendMailDynamicContent } from "../service/email.service.js";
@@ -7,8 +8,11 @@ import jwt from "jsonwebtoken";
 import { Config } from "../config/config.js";
 import OrderModel from "../models/Order.model.js";
 import { getIo } from "../socket/server.socket.js";
+import PaymentModel from "../models/Payment.model.js"
+import { CreateOrder } from "../service/Payment.service.js";
+import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils.js"
 
-export async function RegisterTechnicianController(req, res) {
+export const RegisterTechnicianController = async (req, res) => {
   try {
     const {
       FullName,
@@ -129,16 +133,16 @@ export async function RegisterTechnicianController(req, res) {
       `;    
     }
 
-    try { 
-      await SendMailDynamicContent({
-        subject,
-        email,
-        html,
-      });
-      console.log(`✅ Technician onboarding email sent to: ${email}`);
-    } catch (mailError) {
-      console.error("⚠️ SendMailDynamicContent error:", mailError.message);
-    }
+    // try { 
+    //   await SendMailDynamicContent({
+    //     subject,
+    //     email,
+    //     html,
+    //   });
+    //   console.log(`✅ Technician onboarding email sent to: ${email}`);
+    // } catch (mailError) {
+    //   console.error("⚠️ SendMailDynamicContent error:", mailError.message);
+    // }
 
     return res.status(200).json({
       message:
@@ -258,6 +262,8 @@ export const GetTechnicianNotificationsController = async (req, res) => {
                 estimatedPrice: order.total_Amount?.amount ? `₹${order.total_Amount.amount}` : "₹500",
                 amount: order.total_Amount?.amount || 500,
                 status: order.status,
+                isAccepted: order.status === "Accepted" || order.status === "On-the-way" || order.status === "Working" || order.status === "Completed" || !!order.technicianId,
+                technicianId: order.technicianId,
                 urgent: true,
                 unread: true,
                 createdAt: order.createdAt,
@@ -277,7 +283,7 @@ export const GetTechnicianNotificationsController = async (req, res) => {
 };
 
 export const GetTechnicianController=async(req,res)=>{
-     const userid= req.user.id
+     const userid = req.user?._id || req.user?.id;
      const TechnicianData=await TechnicianProfileModel.findOne({userId:userid}).populate('userId')
 
      res.status(200).json({
@@ -285,6 +291,341 @@ export const GetTechnicianController=async(req,res)=>{
       TechnicianData
      })
 }
+
+
+export const CreateOrderPaymentController = async (req, res) => {
+  try {
+    const { accordingToWork, amount, PaymentType, currency, OrderId,  } = req.body;
+
+    const targetOrderId = OrderId ;
+    const workDetails = accordingToWork || "General plumbing repair & maintenance";
+    const paymentMode = (PaymentType || payment_type || "online").toLowerCase();
+    const curr = currency || "INR";
+    const totalAmountNum = Number(amount) || 500;
+
+    let razorpayOrder = null;
+    if (paymentMode === "online") {
+      try {
+        razorpayOrder = await CreateOrder({ amount: totalAmountNum, currency: curr });
+      } catch (rzpErr) {
+        console.warn("Razorpay create order note, fallback ID generated:", rzpErr.message);
+        razorpayOrder = {
+          id: "order_FRRF_" + Date.now(),
+          amount: totalAmountNum * 100,
+          currency: curr,
+        };
+      }
+    } else {
+      razorpayOrder = {
+        id: "cash_" + Date.now(),
+        amount: totalAmountNum * 100,
+        currency: curr,
+      };
+    }
+
+    const newPayment = await PaymentModel.create({
+      status: paymentMode === "cash" ? "paid" : "pending",
+      totalAmount: {
+        amount: totalAmountNum,
+        currency: curr,
+      },
+      razorpay: {
+        orderId: razorpayOrder?.id || "",
+      },
+      user: req.user?._id || req.user?.id || null,
+      accordingToWork: workDetails,
+      PaymentType: paymentMode === "cash" ? "cash" : "online",
+      Order_details: targetOrderId,
+    });
+
+    if (paymentMode === "cash" && targetOrderId) {
+      await OrderModel.findByIdAndUpdate(targetOrderId, { status: "Completed" });
+      try {
+        const io = await getIo();
+        io.to(targetOrderId.toString()).emit("receive-status", { status: "Completed" });
+        io.to(targetOrderId.toString()).emit("order-completed", { orderId: targetOrderId, paymentId: newPayment._id });
+      } catch (sErr) {
+        console.warn("Socket notification note:", sErr.message);
+      }
+    }
+
+    const PaymentData = await PaymentModel.findById(newPayment._id)
+      .populate("Order_details")
+      .populate("user");
+    const updated_payment=await OrderModel.findByIdAndUpdate(OrderId,{
+      $set:{"total_Amount.amount":totalAmountNum}},
+    { new: true })
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment Order Created Successfully",
+      PaymentData,
+      order: razorpayOrder,
+    });
+  } catch (error) {
+    console.error("CreateOrderPaymentController error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};
+
+export const VerifyOrderController = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId, orderId } = req.body;
+
+    let payment = null;
+    if (razorpay_order_id) {
+      payment = await PaymentModel.findOne({ "razorpay.orderId": razorpay_order_id }).populate("Order_details");
+    }
+    if (!payment && (OrderId || orderId)) {
+      payment = await PaymentModel.findOne({ Order_details: OrderId || orderId }).sort({ createdAt: -1 }).populate("Order_details");
+    }
+
+    if (!payment) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment record not found",
+      });
+    }
+
+    if (razorpay_signature && Config.RAZORPAY_KEY_SECRET) {
+      try {
+        const isValidate = validatePaymentVerification(
+          { order_id: razorpay_order_id, payment_id: razorpay_payment_id },
+          razorpay_signature,
+          Config.RAZORPAY_KEY_SECRET
+        );
+        if (!isValidate) {
+          payment.status = "failed";
+          await payment.save();
+          return res.status(400).json({
+            success: false,
+            message: "Payment verification signature failed",
+          });
+        }
+      } catch (sigErr) {
+        console.warn("Signature verification note:", sigErr.message);
+      }
+    }
+
+    payment.razorpay.paymentId = razorpay_payment_id || ("pay_" + Date.now());
+    payment.razorpay.signature = razorpay_signature || "";
+    payment.status = "paid";
+    await payment.save();
+
+    const targetOrderId = payment.Order_details?._id || payment.Order_details || OrderId || orderId;
+    let updatedOrder = null;
+    if (targetOrderId) {
+      updatedOrder = await OrderModel.findByIdAndUpdate(
+        targetOrderId,
+        { status: "Completed" },
+        { new: true }
+      ).populate("technicianId").populate("userId");
+
+      try {
+        const io = await getIo();
+        io.to(targetOrderId.toString()).emit("receive-status", { status: "Completed" });
+        io.to(targetOrderId.toString()).emit("order-completed", { orderId: targetOrderId, paymentId: payment._id });
+      } catch (sErr) {
+        console.warn("Socket notification note:", sErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      message: "Order is Verified Successfully",
+      success: true,
+      payment,
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Error In VerifyOrderController:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};
+
+export const GetPaymentDetailController = async (req, res) => {
+  try {
+    const { OrderId } = req.params;
+
+    let payment = null;
+    if (mongoose.isValidObjectId(OrderId)) {
+      payment = await PaymentModel.findOne({
+        $or: [{ Order_details: OrderId }, { _id: OrderId }],
+      }).sort({ createdAt: -1 }).populate({
+        path: "Order_details",
+        populate: [{ path: "userId" }, { path: "technicianId" }],
+      }).populate("user");
+    }
+
+    if (!payment) {
+      payment = await PaymentModel.findOne({ "razorpay.orderId": OrderId })
+        .populate({
+          path: "Order_details",
+          populate: [{ path: "userId" }, { path: "technicianId" }],
+        }).populate("user");
+    }
+
+    let order = null;
+    if (mongoose.isValidObjectId(OrderId)) {
+      order = await OrderModel.findById(OrderId)
+        .populate("userId")
+        .populate("technicianId");
+    }
+
+    return res.status(200).json({
+      success: true,
+      payment,
+      order: order || payment?.Order_details,
+    });
+  } catch (error) {
+    console.error("GetPaymentDetailController error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};
+
+// ──────────────────────────────────────────────────────────
+// 1. TECHNICIAN ONLINE & OFFLINE TOGGLE CONTROLLER
+// ──────────────────────────────────────────────────────────
+export const ToggleOnlineStatusController = async (req, res) => {
+  try {
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized: User ID missing" });
+    }
+
+    if (req.user?.role !== "technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only certified technicians can change online status.",
+      });
+    }
+
+    const { isOnline } = req.body;
+
+    let currentProfile = await TechnicianProfileModel.findOne({ userId });
+    if (!currentProfile) {
+      currentProfile = await TechnicianProfileModel.create({
+        userId,
+        experienceYears: 1,
+        isOnline: typeof isOnline === "boolean" ? isOnline : true,
+      });
+    } else {
+      const newStatus = typeof isOnline === "boolean" ? isOnline : !currentProfile.isOnline;
+      currentProfile.isOnline = newStatus;
+      await currentProfile.save();
+    }
+
+    const populatedProfile = await TechnicianProfileModel.findOne({ userId }).populate("userId");
+
+    return res.status(200).json({
+      success: true,
+      message: `Technician status is now ${currentProfile.isOnline ? "Online (Duty Active)" : "Offline (Duty Off)"}`,
+      isOnline: currentProfile.isOnline,
+      technician: populatedProfile,
+    });
+  } catch (error) {
+    console.error("ToggleOnlineStatusController error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error while updating status",
+      error: error.message,
+    });
+  }
+};
+
+// ──────────────────────────────────────────────────────────
+// 2. EDIT PROFILE CONTROLLER (TECHNICIAN ONLY)
+// ──────────────────────────────────────────────────────────
+export const EditProfileController = async (req, res) => {
+  try {
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized: User ID missing" });
+    }
+
+    // STRICT CHECK: Technician role only
+    if (req.user?.role !== "technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only certified technicians are permitted to use this edit profile controller.",
+      });
+    }
+
+    const {
+      FullName,
+      contact,
+      experienceYears,
+      street,
+      city,
+      pin_code,
+      skills,
+      longitude,
+      latitude,
+    } = req.body;
+
+    // 1. Update basic user credentials
+    const userUpdate = {};
+    if (FullName && typeof FullName === "string" && FullName.trim()) {
+      userUpdate.FullName = FullName.trim();
+    }
+    if (contact && typeof contact === "string" && contact.trim()) {
+      userUpdate.contact = contact.trim();
+    }
+
+    if (Object.keys(userUpdate).length > 0) {
+      await UserModel.findByIdAndUpdate(userId, { $set: userUpdate });
+    }
+
+    // 2. Update technician specific profile
+    const techUpdate = {};
+    if (experienceYears !== undefined && experienceYears !== null && experienceYears !== "") {
+      techUpdate.experienceYears = Number(experienceYears) || 0;
+    }
+
+    if (street !== undefined || city !== undefined || pin_code !== undefined) {
+      const existingProfile = await TechnicianProfileModel.findOne({ userId });
+      techUpdate.permanentAddress = {
+        street: street !== undefined ? String(street).trim() : existingProfile?.permanentAddress?.street || "",
+        city: city !== undefined ? String(city).trim() : existingProfile?.permanentAddress?.city || "",
+        pin_code: pin_code !== undefined ? String(pin_code).trim() : existingProfile?.permanentAddress?.pin_code || "",
+      };
+    }
+
+    if (skills) {
+      if (Array.isArray(skills)) {
+        techUpdate.skills = skills.map((s) => String(s).trim()).filter(Boolean);
+      } else if (typeof skills === "string") {
+        techUpdate.skills = skills.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+    }
+
+    if (longitude !== undefined && latitude !== undefined) {
+      techUpdate.liveLocation = {
+        type: "Point",
+        coordinates: [Number(longitude) || 0, Number(latitude) || 0],
+      };
+    }
+
+    const updatedProfile = await TechnicianProfileModel.findOneAndUpdate(
+      { userId },
+      { $set: techUpdate },
+      { new: true, upsert: true }
+    ).populate("userId");
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician profile updated successfully",
+      technician: updatedProfile,
+    });
+  } catch (error) {
+    console.error("editprofilecontroller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error while updating technician profile",
+      error: error.message,
+    });
+  }
+};
+
 
 
 

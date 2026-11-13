@@ -224,7 +224,7 @@ import { useOrder } from '../../order/hook/useOrder.jsx';
                     Password
                   </label>
                   <Link
-                    to="/customer/forget-mail"
+                    to="/forget-mail"
                     className="text-xs text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
                   >
                     Forgot password?
@@ -349,7 +349,7 @@ import { useOrder } from '../../order/hook/useOrder.jsx';
             <p className="mt-4 text-center text-white/35 text-xs">
               Didn't receive verification email?{' '}
               <Link
-                to="/customer/resend-mail"
+                to="/resend-mail"
                 className="text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
               >
                 Resend it

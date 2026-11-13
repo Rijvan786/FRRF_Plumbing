@@ -6,7 +6,7 @@ const {MONGO_URI,JWT_SECRET, NODE_ENV,GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,GOOGLE_REFRESH_TOKEN,
     EMAIL_USER,GOOGLE_CLIENT_ID2,GOOGLE_CLIENT_SECRET2,
     EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,EMAILJS_PUBLIC_KEY,EMAILJS_PRIVATE_KEY,
-    IMAGE_KIT_API_KEY,FRONTEND_URL
+    IMAGE_KIT_API_KEY,FRONTEND_URL , RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 } = process.env
 
 if(!MONGO_URI){
@@ -67,6 +67,13 @@ if(!IMAGE_KIT_API_KEY){
 if(!FRONTEND_URL){
     throw new Error ("FRONTEND_URL Token is not define in environment variable")
 }
+if(!RAZORPAY_KEY_ID){
+     throw new Error ("RAZORPAY_KEY_ID Token is not define in environment variable")
+}
+
+if(!RAZORPAY_KEY_SECRET){
+     throw new Error ("RAZORPAY_KEY_SECRET Token is not define in environment variable")
+}
 
 export const  Config ={
     MONGO_URI:MONGO_URI,
@@ -97,5 +104,9 @@ export const  Config ={
 
     IMAGE_KIT_API_KEY:IMAGE_KIT_API_KEY,
 
-    FRONTEND_URL:FRONTEND_URL
+    FRONTEND_URL:FRONTEND_URL,
+
+    RAZORPAY_KEY_ID:RAZORPAY_KEY_ID,
+
+    RAZORPAY_KEY_SECRET:RAZORPAY_KEY_SECRET
 }

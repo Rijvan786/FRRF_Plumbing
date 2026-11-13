@@ -10,7 +10,7 @@ export async function CreateOrder(payload) {
         ? payload 
         : (payload?.formdata || payload?.formData || payload);
 
-    const response = await api.post("/CreateOrder", formData, {
+    const response = await api.post("/CreateOrder", formData,       {
         headers: {
             "Content-Type": "multipart/form-data"
         }
@@ -30,5 +30,5 @@ export async function GetallServices(){
 
 export async function GetIdS({OrderId}){
      const response=await api.get(`/${OrderId}`)
-     return response.data
+     return response.data   
 }

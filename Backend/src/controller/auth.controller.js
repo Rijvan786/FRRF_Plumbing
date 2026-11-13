@@ -1067,8 +1067,82 @@ export async function GoogleCallback(req, res) {
 }
 
 
-export async function ProfileEditController(){
+export async function ProfileEditController(req, res) {
+  try {
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized: User ID missing" });
+    }
 
-  const {FullName,email,contact,ScheduleTime,}=req.body
-  
+    const { FullName, contact, street, city, pin_code, label, longitude, latitude } = req.body;
+
+    // 1. Update basic user credentials (FullName, contact)
+    const userUpdate = {};
+    if (FullName && typeof FullName === "string" && FullName.trim()) {
+      userUpdate.FullName = FullName.trim();
+    }
+    if (contact && typeof contact === "string" && contact.trim()) {
+      userUpdate.contact = contact.trim();
+    }
+
+    let updatedUser = await UserModel.findById(userId);
+    if (Object.keys(userUpdate).length > 0) {
+      updatedUser = await UserModel.findByIdAndUpdate(
+        userId,
+        { $set: userUpdate },
+        { new: true }
+      );
+    }
+
+    // 2. Update or create customer primary address if address fields passed
+    let updatedAddress = null;
+    if (street !== undefined || city !== undefined || pin_code !== undefined) {
+      const existingAddress = await AddressModel.findOne({ userId, isActive: true });
+      const coords = [
+        longitude !== undefined && longitude !== "" ? Number(longitude) : 76.22,
+        latitude !== undefined && latitude !== "" ? Number(latitude) : 21.31,
+      ];
+
+      if (existingAddress) {
+        if (street !== undefined) existingAddress.street = String(street).trim();
+        if (city !== undefined) existingAddress.city = String(city).trim();
+        if (pin_code !== undefined) existingAddress.pin_code = String(pin_code).trim();
+        if (label !== undefined && label.trim()) existingAddress.label = label.trim();
+        if (longitude !== undefined && latitude !== undefined && longitude !== "" && latitude !== "") {
+          existingAddress.location = {
+            type: "Point",
+            coordinates: coords,
+          };
+        }
+        updatedAddress = await existingAddress.save();
+      } else {
+        updatedAddress = await AddressModel.create({
+          userId,
+          label: label || "Home",
+          street: street ? String(street).trim() : "Main Road",
+          city: city ? String(city).trim() : "Burhanpur",
+          pin_code: pin_code ? String(pin_code).trim() : "450445",
+          location: {
+            type: "Point",
+            coordinates: coords,
+          },
+          isActive: true,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer profile updated successfully",
+      user: updatedUser,
+      address: updatedAddress,
+    });
+  } catch (error) {
+    console.error("ProfileEditController error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error while updating customer profile",
+      error: error.message,
+    });
+  }
 }
