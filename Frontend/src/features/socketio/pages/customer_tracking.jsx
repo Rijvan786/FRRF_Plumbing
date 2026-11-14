@@ -64,7 +64,9 @@ console.log(orderData);
       tLat = Number(technicianLocation.latitude);
       tLng = Number(technicianLocation.longitude);
     } else {
-      const tCoords = orderData?.technicianProfile?.liveLocation?.coordinates;
+      const tCoords =
+        orderData?.technicianId?.liveLocation?.coordinates ||
+        orderData?.technicianProfile?.liveLocation?.coordinates;
       if (Array.isArray(tCoords) && tCoords.length >= 2 && (Number(tCoords[0]) !== 0 || Number(tCoords[1]) !== 0)) {
         tLat = Number(tCoords[1]);
         tLng = Number(tCoords[0]);
@@ -185,6 +187,14 @@ console.log(orderData);
         `);
     } else {
       technicianMarkerRef.current.setLatLng(effectiveTechCoords);
+      technicianMarkerRef.current.setPopupContent(`
+        <div style="font-family:'Space Grotesk',sans-serif; color:#070E1A; padding:6px;">
+          <b style="color:#ea580c; font-size:13px;">🚐 Assigned Master Plumber</b><br/>
+          <span style="font-size:12px; color:#1e293b; font-weight:bold;">${technicianName}</span><br/>
+          <span style="font-size:11px; color:#475569;">Distance: ${liveKmDistance} KM to your address</span><br/>
+          <span style="font-size:10px; color:#16a34a; font-weight:bold;">Status: ${orderStatus || 'On the way'}</span>
+        </div>
+      `);
     }
 
     // 3. 25 Km Service Radius Area Circle centered on Plumber Location
@@ -251,11 +261,29 @@ console.log(orderData);
   const techObj =
     orderData?.technicianId && typeof orderData.technicianId === 'object'
       ? orderData.technicianId
-      : {};
+      : (orderData?.technicianProfile && typeof orderData.technicianProfile === 'object'
+          ? orderData.technicianProfile
+          : {});
+
+  // The technician's user document is populated inside techObj.userId
+  const techUser = techObj.userId && typeof techObj.userId === 'object' ? techObj.userId : {};
+
   const technicianName =
-    techObj.FullName || techObj.name || (orderData?.technicianId ? 'Assigned Master Plumber' : 'Dispatching Technician...');
-  const technicianPhone = techObj.contact || techObj.phone || '';
-  const technicianRating = techObj.rating ? `${techObj.rating} ★` : '4.9 ★';
+    techUser.FullName ||
+    techUser.name ||
+    techObj.FullName ||
+    techObj.name ||
+    (orderData?.technicianId ? 'Assigned Master Plumber' : 'Dispatching Technician...');
+
+  const technicianPhone =
+    techUser.contact ||
+    techUser.phone ||
+    techObj.contact ||
+    techObj.phone ||
+    '';
+
+  const technicianRating = techObj.rating ? `${techObj.rating} ★` : '5.0 ★';
+  const technicianExperience = techObj.experienceYears ? `${techObj.experienceYears} Yrs Exp` : 'Licensed Master Technician';
 
   return (
     <div
@@ -602,7 +630,7 @@ console.log(orderData);
                     {technicianName}
                   </h3>
                   <p className="text-xs text-cyan-300 font-semibold truncate">
-                    Licensed Master Technician • {technicianRating}
+                    {technicianExperience} • {technicianRating}
                   </p>
                   <p className="text-[10px] sm:text-[11px] text-white/45 mt-0.5 font-mono truncate">
                     Service Van #04 • PlumbOps Fast Dispatch

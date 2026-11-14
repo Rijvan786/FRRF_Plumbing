@@ -12,7 +12,7 @@ const OrderSchema=mongoose.Schema({
     },
     technicianId:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"user",
+        ref:"TechnicianProfile",
         default:null
     },
      ServiceDetails:{

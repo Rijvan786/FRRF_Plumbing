@@ -184,7 +184,12 @@ export async function GetIdController(req, res) {
   try {
     const { OrderId } = req.params;
 
-    const Order = await OrderModel.findById(OrderId).populate("technicianId").populate("userId");
+    const Order = await OrderModel.findById(OrderId).populate("userId").populate({
+        path: "technicianId",
+        populate: {
+            path: "userId" // यह Technician Profile के अंदर मौजूद userId है
+        }
+    });
 
     if (!Order) {
       return res.status(404).json({ message: "Order not found" });
