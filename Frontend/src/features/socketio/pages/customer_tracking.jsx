@@ -19,7 +19,7 @@ export default function CustomerTracking() {
     distanceKm: trackedDistance,
     orderData,
   } = trackState;
-
+console.log(orderData);
   // Resolve active Order ID
   const activeOrderId =
     routeOrderId ||
@@ -339,7 +339,7 @@ export default function CustomerTracking() {
             <div className="min-w-0">
               <h2 className="font-['Space_Grotesk',sans-serif] font-bold text-xs sm:text-sm md:text-base text-white">
                 Customer Tracking Mode: Viewing Verified Technician In Transit
-              </h2>
+              </h2> 
               <p className="text-[11px] sm:text-xs text-white/60 mt-0.5 leading-relaxed">
                 Area Coverage:{' '}
                 <strong className="text-cyan-400">25 Km Radial Zone</strong> • Real-time distance updates:{' '}
@@ -589,7 +589,7 @@ export default function CustomerTracking() {
               <div className="flex items-center gap-3 sm:gap-3.5 mb-4 sm:mb-5">
                 <div className="relative shrink-0">
                   <img
-                    src="https://images.customer/photo-1597872200969-2b65d56bd16b?w=160&q=80"
+                    src="https://ik.imagekit.io/Rizwan786/profileimage.avif?updatedAt=1771120805726"
                     alt={technicianName}
                     className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl object-cover border-2 border-cyan-400/50 shadow-[0_0_16px_rgba(6,182,212,0.3)]"
                   />
