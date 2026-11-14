@@ -9,6 +9,9 @@ const plumberServiceSlice = createSlice({
     images: [],
     loading: false,
     error: null,
+    VerifiedTechnicians: [],
+    UnVerifiedTechnicians: [],
+    
   },
   reducers: {
     setServices: (state, action) => {
@@ -71,6 +74,16 @@ const plumberServiceSlice = createSlice({
       state.error = action.payload;
       state.loading = false;
     },
+    setVerifiedTechnicians: (state, action) => {
+      state.VerifiedTechnicians = Array.isArray(action.payload) ? action.payload : [];
+      state.loading = false;
+      state.error = null;
+    },
+    setUnVerifiedTechnicians: (state, action) => {
+      state.UnVerifiedTechnicians = Array.isArray(action.payload) ? action.payload : [];
+      state.loading = false;
+      state.error = null;
+    },
   },
 });
 
@@ -86,6 +99,8 @@ export const {
   setImages,
   setLoadingState,
   setErrorState,
+  setVerifiedTechnicians,
+  setUnVerifiedTechnicians,
 } = plumberServiceSlice.actions;
 
 export default plumberServiceSlice.reducer;

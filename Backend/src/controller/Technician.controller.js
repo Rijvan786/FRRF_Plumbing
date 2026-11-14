@@ -133,16 +133,16 @@ export const RegisterTechnicianController = async (req, res) => {
       `;    
     }
 
-    // try { 
-    //   await SendMailDynamicContent({
-    //     subject,
-    //     email,
-    //     html,
-    //   });
-    //   console.log(`✅ Technician onboarding email sent to: ${email}`);
-    // } catch (mailError) {
-    //   console.error("⚠️ SendMailDynamicContent error:", mailError.message);
-    // }
+    try { 
+      await SendMailDynamicContent({
+        subject,
+        email,
+        html,
+      });
+      console.log(`✅ Technician onboarding email sent to: ${email}`);
+    } catch (mailError) {
+      console.error("⚠️ SendMailDynamicContent error:", mailError.message);
+    }
 
     return res.status(200).json({
       message:
@@ -537,18 +537,7 @@ export const ToggleOnlineStatusController = async (req, res) => {
 // ──────────────────────────────────────────────────────────
 export const EditProfileController = async (req, res) => {
   try {
-    const userId = req.user?._id || req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized: User ID missing" });
-    }
 
-    // STRICT CHECK: Technician role only
-    if (req.user?.role !== "technician") {
-      return res.status(403).json({
-        success: false,
-        message: "Access Denied: Only certified technicians are permitted to use this edit profile controller.",
-      });
-    }
 
     const {
       FullName,
@@ -625,6 +614,8 @@ export const EditProfileController = async (req, res) => {
     });
   }
 };
+
+
 
 
 

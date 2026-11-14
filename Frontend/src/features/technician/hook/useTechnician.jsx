@@ -217,6 +217,8 @@ export function useTechnician() {
     }
   };
 
+  
+
   return {
     handleTechRegister,
     handleGetTechnician,

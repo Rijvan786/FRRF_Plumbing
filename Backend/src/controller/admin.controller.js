@@ -49,28 +49,17 @@ export async function  GetAllServicesController(req,res) {
      })
 }
 
-export async function getTodaysRegisteredPlumbers (req, res) {  
+export async function GetVerifiedTechniciansController(req, res) {  
   try {
-    // 1. आज के दिन की शुरुआत का समय निकालें (Start of Today - 00:00:00)
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    // 2. आज के दिन के ख़त्म होने का समय निकालें (End of Today - 23:59:59)
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-
-    // 3. MongoDB Query: रेंज के अंदर खोजें
-    const todaysPlumbers = await TechnicianProfileModel.find({
-      createdAt: {
-        $gte: startOfToday, // $gte = Greater Than or Equal To (इसके बराबर या इसके बाद)
-        $lte: endOfToday    // $lte = Less Than or Equal To (इसके बराबर या इससे पहले)
-      }
+   
+    const VerifiedTechnician = await TechnicianProfileModel.find({
+       isVerifiedTech: true
     }).populate('userId');
 
     res.status(200).json({
       success: true,
-      count: todaysPlumbers.length,
-      data: todaysPlumbers
+      count: VerifiedTechnician.length,
+      data: VerifiedTechnician
     });
 
   } catch (error) {
@@ -78,16 +67,116 @@ export async function getTodaysRegisteredPlumbers (req, res) {
   }
 };
 
+
+export async function GetUnVerifiedTechniciansController(req, res) {  
+  try {
+   
+    const UnVerifiedTechnicians = await TechnicianProfileModel.find({
+       isVerifiedTech: false
+    }).populate('userId');
+
+    res.status(200).json({
+      success: true,
+      count: UnVerifiedTechnicians.length,
+      data: UnVerifiedTechnicians
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+export async function EditServiceController(req,res){
+  try{
+      const {serviceName,category,currency,amount,EstimatedTimeMinutes,visitCharge} = req.body
+    
+   const serviceUpdate = {};
+    
+    // सिर्फ वही फील्ड्स अपडेट करें जो यूज़र ने भेजी हैं (Dynamic Update)
+    if (serviceName) serviceUpdate.serviceName = serviceName;
+    if (category) serviceUpdate.category = category;
+    if (visitCharge) serviceUpdate.visitCharge = visitCharge;
+    if (EstimatedTimeMinutes) serviceUpdate.EstimatedTimeMinutes = EstimatedTimeMinutes;
+    
+    // अगर amount या currency आई है, तो price अपडेट करें
+    if (amount || currency) {
+        serviceUpdate.price = {};
+        if (amount) serviceUpdate.price.amount = amount;
+        if (currency) serviceUpdate.price.currency = currency;
+    }
+      console.log(req.files);
+    // 📸 Images को सुरक्षित तरीके से हैंडल करना
+    // चेक करें कि req.files मौजूद है और उसमें कोई फाइल है या नहीं
+    if (req.files && req.files.length > 0) {
+
+        const images = await Promise.all(
+            req.files.map(async (file) => {
+                
+              return await uploadFile({
+                    buffer: file.buffer,
+                    fileName: file.originalname
+                });
+                
+                // डेटाबेस में सिर्फ URL सेव करें (या आपकी ज़रूरत के हिसाब से)
+                
+            }));
+        
+        serviceUpdate.serviceImg = images; // नई इमेजेज़ डेटाबेस में सेट कर दें
+    }
+
+    // डेटाबेस में अपडेट करना
+    const service = await ServiceModel.findOneAndUpdate(
+        { serviceName: serviceName }, 
+        { $set: serviceUpdate },
+        { new: true }
+    );
+
+    if (!service) {
+        return res.status(404).json({ message: "Service not found!" });
+    }
+  res.status(200).json({
+      message:"Service is updated Successfully",
+      service
+    })
+
+  }
+  catch(error){
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 export async function  VerifyTechnicianController(req,res){
-   const {email}=req.body
-   const  user =await UserModel.find()
-
-   if(user.role==="Technician"){
-    await UserModel.findOneAndUpdate({email:email},
-        {isVerifiedTech:true})
-   }
-
+ try{
+    const {technicianId}=req.body
+ 
+   const updatedTechnician = await TechnicianProfileModel.findOneAndUpdate({_id:technicianId},
+        {isVerifiedTech:true},
+      {returnDocument:'after'})
+   
+   res.status(200).json({
+    message:"Technician is verified Successfully",
+    technician: updatedTechnician
+   })
+ }
+ catch(error){
+  res.status(500).json({ success: false, error: error.message });
+ }
     
 }
 
+export async function  RemoveServiceController(req,res){
+  try{
+    const {serviceId}=req.body
+    const removedService = await ServiceModel.findByIdAndDelete(serviceId);
+    res.status(200).json({
+      message:"Service is removed Successfully",
+      service: removedService
+    })
+  }
+  catch(error){
+    clg("Error in RemoveServiceController:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
 

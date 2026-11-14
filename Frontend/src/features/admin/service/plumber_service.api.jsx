@@ -22,9 +22,35 @@ export async function GetTodayRegisterTechnicians() {
   return response.data;
 }
 
-export async function VerifyTechnician({ email }) {
-  const response = await api.post("/verifyTechnician", { email });
+export async function VerifyTechnician({ technicianId }) {
+  const response = await api.patch("/verifyTechnician", { technicianId });
   return response.data;
 }
+
+export async function GetVerifiedTechnicians(){
+  const response=await api.get("/getVerifiedTechnicians");
+  return response.data
+}
+
+export async function GetUnVerifiedTechnicians(){
+  const response=await api.get("/getUnVerifiedTechnicians");
+  return response.data
+}
+
+export async function   EditService(payload) {
+  // Backend route is PUT /EditService (without /:id in the URL)
+  const isFormData = payload instanceof FormData;
+  const response = await api.put("/EditService", payload, {
+    headers: isFormData
+      ? { "Content-Type": "multipart/form-data" }
+      : { "Content-Type": "application/json" },
+  });
+  return response.data;
+}
+export async function RemoveService({ serviceId }) {
+  const response = await api.delete("/RemoveService", { data: { serviceId } });
+  return response.data;
+}
+
 
 export default api;

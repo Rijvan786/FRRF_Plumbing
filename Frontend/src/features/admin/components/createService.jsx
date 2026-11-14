@@ -164,7 +164,7 @@ export default function CreateService({ isModal = false, onClose, onServiceCreat
       images.forEach((imgFile) => {
         formdata.append('Images', imgFile);
       });
-      console.log("Formdata",formdata);
+      console.log("Formdata",formdata);   
 
       const response = await handleCreateService(formdata);
 

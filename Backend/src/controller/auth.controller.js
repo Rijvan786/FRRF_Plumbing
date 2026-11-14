@@ -149,12 +149,12 @@ console.log(contact);
     }
 
     // ── Send welcome email ──
-    // await SendMailDynamicContent({
-    //   email: email,
-    //   subject: emailSubject,
-    //   subject_line: emailSubject,
-    //   html: emailHtml,
-    // });
+    await SendMailDynamicContent({
+      email: email,
+      subject: emailSubject,
+      subject_line: emailSubject,
+      html: emailHtml,
+    });
     
 
     console.log(`✅ Welcome email sent to: ${email} (role: ${role})`);
@@ -272,13 +272,13 @@ export async function ResendMailController(req, res) {
       });
     }
 
-    // await SendMailDynamicContent({
-    //   email: user.email,
-    //   subject: emailSubject,
-    //   subject_line: emailSubject,
-    //   text: `Hello ${user.FullName},\n\nClick the link below to verify your FRRF Plumbing account:\n${verifyUrl}\n\nValid for 7 days under our Work 1st Policy.\n\n— FRRF Plumbing Team`,
-    //   html: emailHtml,
-    // });
+    await SendMailDynamicContent({
+      email: user.email,
+      subject: emailSubject,
+      subject_line: emailSubject,
+      text: `Hello ${user.FullName},\n\nClick the link below to verify your FRRF Plumbing account:\n${verifyUrl}\n\nValid for 7 days under our Work 1st Policy.\n\n— FRRF Plumbing Team`,
+      html: emailHtml,
+    });
 
     // Update timestamp for rate limit tracking
     user.updatedAt = new Date();
@@ -582,24 +582,9 @@ export async function LoginController(req, res) {
     }
 
     // ── Generate JWT token ──
-    const token = jwt.sign(
-      {
-        id: user._id,
-        FullName: user.FullName,
-        email: user.email,
-        role: user.role,
-      },    
-      Config.JWT_SECRET,
-      { expiresIn: "7d" },
-    );
 
     // ── Set Cookie ──
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "Strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    
 
     // ── Send Logged-In Success Email Notification ──
     const loginTimeStr = new Date().toLocaleString("en-IN", {
@@ -620,9 +605,9 @@ export async function LoginController(req, res) {
     //   : "🔐 Security Alert: Successful Account Login — FRRF Plumbing";
 
     // // Send email via Sendmail service
-    // Sendmail({
-    //   to: user.email,
-    //   subject: emailSubject,
+    // SendMailDynamicContent({
+    //   email: user.email,
+    //   subject_line: emailSubject,
     //   text: `Hello ${user.FullName},\n\nYou have successfully logged in to your FRRF Plumbing account on ${loginTimeStr} IST.\n\nIf you did not initiate this login, please secure your account immediately.\n\n— FRRF Plumbing Security Team`,
     //   html: emailHtml,
     // }).then(() => {
@@ -715,13 +700,13 @@ export async function ResetPasswordMailController(req, res) {
         : "🔐 Password Reset Request — FRRF Plumbing Services";
 
     // ── Send email via email service ──
-    // await SendMailDynamicContent({
-    //   email: user.email,
-    //   subject: emailSubject,
-    //   subject_line: emailSubject,
-    //   text: `Hello ${user.FullName},\n\nWe received a request to reset your FRRF Plumbing password.\n\nPlease click the link below to set a new password:\n${resetUrl}\n\nNote: This link will expire in 1 hour under our Work 1st Security Guard.\n\nIf you did not request a password reset, please ignore this email.\n\n— FRRF Plumbing Security Team`,
-    //   html: emailHtml,
-    // });
+    await SendMailDynamicContent({
+      email: user.email,
+      subject: emailSubject,
+      subject_line: emailSubject,
+      text: `Hello ${user.FullName},\n\nWe received a request to reset your FRRF Plumbing password.\n\nPlease click the link below to set a new password:\n${resetUrl}\n\nNote: This link will expire in 1 hour under our Work 1st Security Guard.\n\nIf you did not request a password reset, please ignore this email.\n\n— FRRF Plumbing Security Team`,
+      html: emailHtml,
+    });
 
     console.log(
       `🔑 Password reset email sent to: ${user.email} (${user.role})`,
@@ -1039,23 +1024,23 @@ export async function GoogleCallback(req, res) {
         : "🔐 Security Alert: Google Sign-In Successful — FRRF Plumbing";
 
     // Dispatch email asynchronously
-    // await SendMailDynamicContent({
-    //   email: user.email,
-    //   subject: emailSubject,
-    //   subject_line: emailSubject,
-    //   html: emailHtml,
-    // })
-      // .then(() => {
-      //   console.log(
-      //     `📧 Google OAuth notification email sent to: ${user.email}`,
-      //   );
-      // })
-      // .catch((emailErr) => {
-      //   console.error(
-      //     `⚠️ Failed to send Google callback email to ${user.email}:`,
-      //     emailErr.message,
-      //   );
-      // });
+        await SendMailDynamicContent({
+          email: user.email,
+          subject: emailSubject,
+          subject_line: emailSubject,
+          html: emailHtml,
+        })
+          .then(() => {
+        console.log(
+          `📧 Google OAuth notification email sent to: ${user.email}`,
+        );
+      })
+      .catch((emailErr) => {
+        console.error(
+          `⚠️ Failed to send Google callback email to ${user.email}:`,
+          emailErr.message,
+        );
+      });
     // 
     return res.redirect("https://frpf-plumbing.onrender.com/");
   } catch (error) {

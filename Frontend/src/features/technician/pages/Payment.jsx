@@ -75,7 +75,7 @@ export default function Payment() {
           currency: 'INR',
           name: 'FRRF Plumbing Services',
           description: `Invoice for ${orderData?.ServiceDetails?.serviceName || 'Plumbing Service'} - Order #${(OrderId || '').slice(-6)}`,
-          image: '/frrf-logo.png',
+          image: '/black.png',
           order_id: createdOrder?.id || createdOrder?.orderId,
           handler: async (response) => {
             try {
