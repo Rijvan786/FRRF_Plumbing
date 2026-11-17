@@ -6,7 +6,7 @@ let io = null;
 export function Initfunction(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: "https://frpf-plumbing.onrender.com",
+      origin: "http://localhost:5173",
       credentials: true,
       methods: ["GET", "POST"],
     },

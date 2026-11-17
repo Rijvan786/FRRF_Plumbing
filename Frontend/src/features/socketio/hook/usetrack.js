@@ -54,7 +54,7 @@ export const useTrackSocket = ({ OrderId }) => {
       try {
         dispatch(setTrackLoading(true));
         const res = await GetIdS({ OrderId });
-        console.log(res);
+        console.log(res.order);
         const order = res?.order || (res?._id ? res : null);
         const techProfile = res?.technicianProfile;
 

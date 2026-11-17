@@ -33,11 +33,13 @@ export async function GetIdS({OrderId}){
      return response.data   
 }
 
-export async function CreateOrderPayment({ accordingToWork, amount, PaymentType, currency, OrderId }) {
+export async function CreateOrderPayment({ accordingToWork, accordingtowork, amount, PaymentType, payment_type, currency, OrderId }) {
   const response = await api.post("/CreateOrderPayment", {
-    accordingToWork,
+    accordingToWork: accordingToWork || accordingtowork,
+    accordingtowork: accordingtowork || accordingToWork,
     amount,
-    PaymentType,
+    PaymentType: PaymentType || payment_type,
+    payment_type: payment_type || PaymentType,
     currency,
     OrderId,
   });

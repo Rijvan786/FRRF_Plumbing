@@ -39,7 +39,8 @@ export async function CreateOrderController(req, res) {
    else{
      total_Amount=service_Data.price.amount
    }
-
+  console.log("total-amount",total_Amount);
+  
     
 
     const Images = req.files
@@ -229,13 +230,13 @@ export async function GetIdController(req, res) {
 
 export const CreateOrderPaymentController = async (req, res) => {
   try {
-    const { accordingToWork, amount, PaymentType, currency, OrderId} = req.body;
-
+    const { accordingToWork,amount,PaymentType,currency,OrderId} = req.body;
+  console.log(accordingToWork,amount,PaymentType,currency,OrderId);
     const targetOrderId = OrderId ;
     const workDetails = accordingToWork || "General plumbing repair & maintenance";
-    const paymentMode = (PaymentType || payment_type || "online").toLowerCase();
+    const paymentMode = PaymentType || "online";
     const curr = currency || "INR";
-    const totalAmountNum = Number(amount) || 500;
+    const totalAmountNum = Number(amount) || 500; 
 
     let razorpayOrder = null;
     const order=await OrderModel.findById(OrderId)
@@ -247,15 +248,15 @@ export const CreateOrderPaymentController = async (req, res) => {
     
     if(order.technicianId==null){
             return res.status(404).json({
-        message:"Order is not accepted By any technician"
+        message:"Order is not accepted By  technician"
       })
     }
   
     
    
     if(order.status!=="Completed"){
-      return res.status(404).json({
-        message:"Order is not completed By any technician"
+      return res.status(400).json({
+        message:"Order work in not  completed By any technician"
       })
     }
    
@@ -307,7 +308,11 @@ export const CreateOrderPaymentController = async (req, res) => {
       .populate("Order_details")
       .populate("user");
     const updated_payment=await OrderModel.findByIdAndUpdate(OrderId,{
-      $set:{"total_Amount.amount":totalAmountNum}},
+      $set:{
+        "total_Amount.amount":totalAmountNum,
+        PaymentWorkDetail: workDetails,
+        status: "Completed",
+      }},
     { returnDocument:'after'})
 
     return res.status(200).json({

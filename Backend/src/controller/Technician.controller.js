@@ -167,8 +167,10 @@ export const RegisterTechnicianController = async (req, res) => {
 }
 // orderController.js
 export const acceptJobController = async (req, res) => {
+
     try {
         const { OrderId, technicianId } = req.body;
+        console.log("accept acceptController",OrderId,technicianId);
 
         // 1. Check if the order is already accepted by another technician
         const orderExists = await OrderModel.findById(OrderId);
@@ -390,7 +392,7 @@ export const VerifyPlumberWorkController=async(req,res)=>{
            
         // नई इमेजेज़ डेटाबेस में सेट कर दें
        
-   console.log(images,PaymentWorkDetail);
+ 
        const order=await OrderModel.findById(OrderId)
     if(!order){
         res.status(404).json({
@@ -418,9 +420,7 @@ export const VerifyPlumberWorkController=async(req,res)=>{
       {$set:{status:"Completed",
          PaymentWorkDetail:PaymentWorkDetail,
       verifiedIssueImageUrl:images,
-      total_Amount:{
-        amount:amount
-      }}},
+     }},
      {returnDocument:'after' })
       
        res.status(200).json({

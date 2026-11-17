@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useTrackSocket, calculateDistanceKm } from '../../socketio/hook/usetrack.js';
 import { useLocationSender } from '../hook/useLocationSender.jsx';
 import { emitTechnicianStatus, emitTechnicianLocation } from '../services/socket.api.jsx';
-import { setTechnicianLocation } from '../../socketio/state/track.slice.jsx';
+import { setOrderData, setOrderStatus, setTechnicianLocation } from '../../socketio/state/track.slice.jsx';
 import useTechnician from '../hook/useTechnician.jsx';
 import { useToast } from '../../auth/component/ToastPopup.jsx';
 import { markNotificationRead, markNotificationAccepted } from '../state/technician.slice.jsx';
@@ -15,9 +15,11 @@ export default function TechnicianTracking() {
   const dispatch = useDispatch();
 
   // Redux Selectors
+  const reduxTechnician = useSelector((state) => state.technician?.technician || state.technician?.tech);
   const reduxOrders = useSelector((state) => state.order?.orders || state.order?.item || []);
   const reduxUser = useSelector((state) => state.auth?.User);
   const trackState = useSelector((state) => state.trackUser);
+
   const {
     technicianLocation,
     customerLocation,
@@ -41,42 +43,92 @@ export default function TechnicianTracking() {
   const [showAcceptPopup, setShowAcceptPopup] = useState(true);
 
   // Hook & State for accepting order in database (Mark Read)
-  const { handleAcceptJob } = useTechnician();
+  const { handleAcceptJob, handleGetIdS,handleGetTechnician } = useTechnician();
   const { showToast } = useToast();
   const [isAcceptingDb, setIsAcceptingDb] = useState(false);
   const [isOrderAcceptedInDb, setIsOrderAcceptedInDb] = useState(
-    orderData?.status === 'Accepted' || orderData?.status === 'Working' || !!orderData?.technicianId
+    Boolean(orderData?.status === "Accepted" || orderData?.status === "Working" || orderData?.technicianId)
   );
+
+  // Sync acceptance state whenever orderData changes
+  useEffect(() => {
+    if (orderData?.status === 'Accepted' || orderData?.status === 'Working' || !!orderData?.technicianId) {
+      setIsOrderAcceptedInDb(true);
+    }
+  }, [orderData?.status, orderData?.technicianId]);
+
+  // Load real fresh order data directly from backend DB on mount / orderId change
+  useEffect(() => {
+    handleGetTechnician()
+    if (activeOrderId && activeOrderId !== 'LIVE_DEMO_ORDER') {
+      
+      handleGetIdS({ OrderId: activeOrderId })
+        .then((res) => {
+          if (res?.order) {
+            dispatch(setOrderData(res.order));
+            if (res.order.status) {
+              dispatch(setOrderStatus(res.order.status));
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('TechnicianTracking load real order error:', err?.message || err);
+        });
+    }
+  }, [activeOrderId]);
 
   const handleMarkReadAndAccept = async () => {
     try {
       setIsAcceptingDb(true);
       const techId =
-        reduxUser?._id ||
+        reduxTechnician?._id ||
         reduxUser?.id ||
-        orderData?.technicianId?._id ||
+        orderData?.technicianId ||
         orderData?.technicianId;
 
-      if (techId && activeOrderId && activeOrderId !== 'LIVE_DEMO_ORDER') {
-        await handleAcceptJob({ OrderId: activeOrderId, technicianId: techId });
+   const acceptRes = await handleAcceptJob({ OrderId: activeOrderId, technicianId: techId });
+        
+        if (acceptRes?.order || acceptRes?.data?.order) {
+          const updated = acceptRes.order || acceptRes.data.order;
+          dispatch(setOrderData(updated));
+          dispatch(setOrderStatus(updated.status || 'Accepted'));
+        }
+      
+
+      // Re-fetch authoritative fresh data directly from MongoDB
+      const freshRes = await handleGetIdS({ OrderId: activeOrderId });
+      if (freshRes?.order) {
+        dispatch(setOrderData(freshRes.order));
+        dispatch(setOrderStatus(freshRes.order.status || 'Accepted'));
       }
+
       dispatch(markNotificationRead(activeOrderId));
       dispatch(markNotificationAccepted(activeOrderId));
       setIsOrderAcceptedInDb(true);
       showToast({
         type: 'success',
-        message: 'Order marked read and accepted in database successfully!',
+        message: 'Order accepted & updated in database successfully!',
         duration: 3500,
       });
     } catch (err) {
       console.warn('handleMarkReadAndAccept note:', err?.message || err);
+      // Attempt fresh sync even if already accepted
+      try {
+        const freshRes = await handleGetIdS({ OrderId: activeOrderId });
+        if (freshRes?.order) {
+          dispatch(setOrderData(freshRes.order));
+          dispatch(setOrderStatus(freshRes.order.status || 'Accepted'));
+        }
+      } catch (err) {
+        console.log(err);
+      }
       setIsOrderAcceptedInDb(true);
       dispatch(markNotificationRead(activeOrderId));
       dispatch(markNotificationAccepted(activeOrderId));
       showToast({
         type: 'info',
-        message: 'Order is active and accepted in database.',
-        duration: 3000,
+        message: 'Order confirmed active in database.',
+       duration: 3000,
       });
     } finally {
       setIsAcceptingDb(false);
@@ -241,23 +293,23 @@ export default function TechnicianTracking() {
       iconAnchor: [26, 26],
     });
 
-    // 2. Manage Customer Destination Marker with Order Accepted Popup
+    // 2. Manage Customer Destination Marker with Order Accepted Popup (Dark Obsidian Theme)
     const customerPopupContent = `
-      <div style="font-family:'Space Grotesk',sans-serif; color:#070E1A; padding:6px; min-width:190px;">
-        <div style="display:inline-block; background:#10b981; color:#ffffff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">
+      <div style="font-family:'Space Grotesk',sans-serif; color:#ffffff; padding:6px; min-width:180px; max-width:240px;">
+        <div style="display:inline-block; background:#10b981; color:#022c22; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">
           ✓ Order Accepted
         </div>
-        <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:2px;">
+        <div style="font-size:13px; font-weight:800; color:#f8fafc; margin-bottom:2px;">
           ${displayCustomerName}
         </div>
-        <div style="font-size:11px; color:#475569; margin-bottom:4px; line-height:1.3;">
+        <div style="font-size:11px; color:#94a3b8; margin-bottom:4px; line-height:1.3;">
           📍 ${displayAddress}
         </div>
-        <div style="font-size:11px; font-weight:700; color:#0284c7; margin-bottom:2px;">
+        <div style="font-size:11px; font-weight:700; color:#38bdf8; margin-bottom:2px;">
           🔧 ${displayService}
         </div>
-        ${displayCustomerPhone ? `<div style="font-size:11px; font-weight:600; color:#059669;">📞 ${displayCustomerPhone}</div>` : ''}
-        <div style="font-size:10px; font-weight:700; color:#ea580c; margin-top:4px; border-top:1px solid #e2e8f0; padding-top:3px;">
+        ${displayCustomerPhone ? `<div style="font-size:11px; font-weight:600; color:#34d399;">📞 ${displayCustomerPhone}</div>` : ''}
+        <div style="font-size:10px; font-weight:700; color:#fb923c; margin-top:4px; border-top:1px solid rgba(255,255,255,0.12); padding-top:4px;">
           Distance: ${liveKmDistance} KM to Destination
         </div>
       </div>
@@ -267,13 +319,6 @@ export default function TechnicianTracking() {
       customerMarkerRef.current = L.marker(effectiveCustCoords, { icon: customerIcon })
         .addTo(map)
         .bindPopup(customerPopupContent);
-
-      // Auto-open popup on map load showing accepted order
-      setTimeout(() => {
-        if (customerMarkerRef.current) {
-          customerMarkerRef.current.openPopup();
-        }
-      }, 500);
     } else {
       customerMarkerRef.current.setLatLng(effectiveCustCoords);
       customerMarkerRef.current.setPopupContent(customerPopupContent);
@@ -375,8 +420,8 @@ export default function TechnicianTracking() {
         console.warn('Status change accept note:', err?.message || err);
       }
     }
-    if (newStatus === 'Completed') {
-      navigate(`/technician/verify-plumber-verify/${activeOrderId}`);
+    if (newStatus === 'Accepted') {
+      navigate(`/technician/verify-plumber-work/${activeOrderId}`);
     }
   };
 
@@ -443,9 +488,19 @@ export default function TechnicianTracking() {
           background: #070E1A !important;
         }
         .leaflet-popup-content-wrapper {
-          background: rgba(255, 255, 255, 0.95) !important;
-          border-radius: 12px !important;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+          background: rgba(10, 22, 40, 0.96) !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.18) !important;
+          border-radius: 14px !important;
+          box-shadow: 0 12px 35px rgba(0, 0, 0, 0.85) !important;
+          backdrop-filter: blur(12px) !important;
+        }
+        .leaflet-popup-tip {
+          background: rgba(10, 22, 40, 0.96) !important;
+        }
+        .leaflet-container a.leaflet-popup-close-button {
+          color: #94a3b8 !important;
+          padding: 6px !important;
         }
       `}</style>
 
@@ -523,11 +578,11 @@ export default function TechnicianTracking() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0 justify-stretch sm:justify-end">
+            <div className="grid grid-cols-2 xs:flex xs:flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto shrink-0 justify-stretch sm:justify-end pt-2 md:pt-0 border-t md:border-t-0 border-white/10">
               {displayCustomerPhone && (
                 <a
                   href={`tel:${displayCustomerPhone}`}
-                  className="flex-1 md:flex-none text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 no-underline active:scale-95"
+                  className="text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 no-underline active:scale-95 whitespace-nowrap"
                 >
                   <span>📞 Call</span>
                 </a>
@@ -537,7 +592,7 @@ export default function TechnicianTracking() {
               <button
                 onClick={handleMarkReadAndAccept}
                 disabled={isAcceptingDb}
-                className={`flex-1 md:flex-none text-xs font-black px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                className={`text-xs font-black px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap ${
                   isOrderAcceptedInDb
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default'
                     : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.35)]'
@@ -546,35 +601,35 @@ export default function TechnicianTracking() {
                 {isAcceptingDb ? (
                   <>
                     <span className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                    <span>Updating....</span>
+                    <span>Updating...</span>
                   </>
                 ) : isOrderAcceptedInDb ? (
                   <>
                     <span>✓</span>
-                    <span>Marked Read  Accepted</span>
+                    <span>Accepted</span>
                   </>
                 ) : (
                   <>
                     <span>📨</span>
-                    <span>Mark Read & Accept </span>
+                    <span>Accept (DB)</span>
                   </>
                 )}
               </button>
 
               <button
                 onClick={() => {
-                  if (customerMarkerRef.current) {
+                  if (leafletMapRef.current && customerMarkerRef.current) {
+                    leafletMapRef.current.setView(effectiveCustCoords, 15, { animate: true });
                     customerMarkerRef.current.openPopup();
                   }
-                  setShowAcceptPopup(false);
                 }}
-                className="flex-1 md:flex-none text-xs bg-white/10 hover:bg-white/15 text-white font-bold px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl transition-all cursor-pointer text-center justify-center active:scale-95"
+                className="text-xs bg-white/10 hover:bg-white/15 text-white font-bold px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl transition-all cursor-pointer text-center justify-center active:scale-95 whitespace-nowrap flex items-center gap-1"
               >
-                View on Map 📍
+                <span>📍 Map</span>
               </button>
               <button
                 onClick={() => setShowAcceptPopup(false)}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center text-sm transition-all cursor-pointer shrink-0"
+                className="w-full xs:w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center text-xs sm:text-sm transition-all cursor-pointer shrink-0"
                 title="Dismiss banner"
               >
                 ✕
@@ -601,70 +656,60 @@ export default function TechnicianTracking() {
           </div>
 
           {/* Technician Action Buttons */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-white/5">
             <button
               onClick={handleAdvanceStep}
-              className="flex-1 sm:flex-none text-xs bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 hover:text-white px-3 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+              className="w-full sm:w-auto text-xs bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 hover:text-white px-3 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
               title="Advance GPS step towards client (for local testing)"
             >
               <span>🚗</span>
               <span className="whitespace-nowrap">Simulate Drive Step (-0.5 km)</span>
             </button>
 
-            {!isOrderAcceptedInDb && (
-              <button
-                onClick={handleMarkReadAndAccept}
-                disabled={isAcceptingDb}
-                className="flex-1 sm:flex-none text-xs bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white px-3 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-                title="Mark Read and Accept Order in MongoDB Database"
-              >
-                <span>📨</span>
-                <span className="whitespace-nowrap">Mark Read Accepted</span>
-              </button>
-            )}
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+              {orderStatus !== 'Working' && orderStatus !== 'Completed' && (
+                <button
+                  onClick={() => handleStatusChange('Working')}
+                  className="w-full sm:w-auto text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(16,185,129,0.4)] flex items-center justify-center gap-1 active:scale-95"
+                >
+                  <span>✓</span>
+                  <span>Mark Arrived</span>
+                </button>
+              )}
 
-            {orderStatus !== 'Working' && orderStatus !== 'Completed' && (
               <button
-                onClick={() => handleStatusChange('Working')}
-                className="flex-1 sm:flex-none text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(16,185,129,0.4)] text-center justify-center active:scale-95"
+                onClick={() => navigate(`/technician/verify-plumber-work/${activeOrderId}`)}
+                className="w-full sm:w-auto text-xs bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-slate-950 px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer whitespace-nowrap shadow-[0_0_20px_rgba(255,107,0,0.4)] flex items-center justify-center gap-1.5 active:scale-95"
               >
-                Mark Arrived ✓
+                <span>📋</span>
+                <span>Complete Job →</span>
               </button>
-            )}
-
-            {orderStatus === 'Working' && (
-              <button
-                onClick={() => handleStatusChange('Completed')}
-                className="flex-1 sm:flex-none text-xs bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(6,182,212,0.4)] text-center justify-center active:scale-95"
-              >
-                Complete Job & Invoice ✓
-              </button>
-            )}
+            </div>
           </div>
         </div>
 
         {/* ── MAP CONTAINER (LEAFLET.JS with Free OpenStreetMap Tiles) ── */}
-        <div className="relative w-full h-[300px] xs:h-[340px] sm:h-[420px] md:h-[480px] lg:h-[520px] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-[#070E1A]">
+        <div className="relative w-full h-[260px] xs:h-[300px] sm:h-[380px] md:h-[460px] lg:h-[500px] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-[#070E1A]">
           
           {/* Leaflet DOM Anchor with Dark Obsidian Styling */}
           <div ref={mapContainerRef} className="dark-obsidian-map w-full h-full z-0" />
 
           {/* Floating Top Telemetry HUD Pill (Fully responsive across phones & desktops) */}
-          <div className="absolute top-3 sm:top-4 inset-x-2 sm:inset-x-4 flex justify-center pointer-events-none z-10 px-1">
-            <div className="bg-[#070E1A]/95 backdrop-blur-2xl border border-orange-500/40 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-2xl sm:rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex flex-wrap items-center justify-center gap-1.5 sm:gap-3 text-center max-w-[96%]">
-              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_12px_#ff6b00] animate-ping shrink-0" />
-              <span className="font-['Space_Grotesk',sans-serif] font-bold text-[11px] sm:text-xs md:text-sm text-white">
+          <div className="absolute top-2.5 sm:top-4 inset-x-1.5 sm:inset-x-4 flex justify-center pointer-events-none z-10 px-1">
+            <div className="bg-[#070E1A]/95 backdrop-blur-2xl border border-orange-500/40 px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex flex-wrap items-center justify-center gap-1 sm:gap-2.5 text-center max-w-[98%] sm:max-w-[96%]">
+              <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-orange-500 shadow-[0_0_12px_#ff6b00] animate-ping shrink-0" />
+              <span className="font-['Space_Grotesk',sans-serif] font-bold text-[10px] xs:text-xs sm:text-sm text-white">
                 Status:{' '}
                 <span className="text-orange-400 font-extrabold uppercase">
                   {orderStatus || 'On the way'}
                 </span>
               </span>
               <span className="hidden xs:inline text-white/30">•</span>
-              <span className="font-['Space_Grotesk',sans-serif] font-black text-[11px] sm:text-xs md:text-sm text-cyan-400">
+              <span className="font-['Space_Grotesk',sans-serif] font-black text-[10px] xs:text-xs sm:text-sm text-cyan-400">
                 {liveKmDistance} KM to Destination
               </span>
               <span className="text-white/30">•</span>
-              <span className="text-[11px] sm:text-xs md:text-sm font-bold text-emerald-400">
+              <span className="text-[10px] xs:text-xs sm:text-sm font-bold text-emerald-400">
                 ETA ~{estimatedMins} mins
               </span>
             </div>

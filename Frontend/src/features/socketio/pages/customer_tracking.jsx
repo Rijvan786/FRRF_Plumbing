@@ -315,8 +315,8 @@ console.log(orderData);
       <div className="absolute bottom-10 right-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-orange-500/10 rounded-full blur-[100px] sm:blur-[130px] pointer-events-none" />
 
       {/* ── TOP HEADER / NAV BAR ── */}
-      <header className="sticky top-0 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4 w-full">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
+      <header className="sticky top-0 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10 px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3.5 flex items-center justify-between gap-1.5 sm:gap-4 w-full">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
           <button
             onClick={() => navigate('/customer/profile')}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer shrink-0 active:scale-95"
@@ -326,10 +326,10 @@ console.log(orderData);
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="font-['Space_Grotesk',sans-serif] font-black text-sm sm:text-lg md:text-xl text-white tracking-tight truncate block sm:inline">
+              <span className="font-['Space_Grotesk',sans-serif] font-black text-xs xs:text-sm sm:text-lg md:text-xl text-white tracking-tight truncate block sm:inline">
                 Live GPS Dispatch Radar
               </span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-full hidden md:inline shrink-0">
+              <span className="text-[9px] sm:text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-1.5 sm:px-2 py-0.5 rounded-full hidden md:inline shrink-0">
                 {activeOrderId.slice(0, 10)}
               </span>
             </div>
@@ -340,10 +340,10 @@ console.log(orderData);
         </div>
 
         {/* Top Header Right: My Bookings & Services + Live Button */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
             onClick={() => navigate('/customer/profile')}
-            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/12 hover:border-cyan-500/40 text-white/90 hover:text-white text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-sm"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/12 hover:border-cyan-500/40 text-white/90 hover:text-white text-[11px] sm:text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-sm"
             title="View My Bookings & Services"
           >
             <span className="text-cyan-400">📋</span>
@@ -354,15 +354,15 @@ console.log(orderData);
           {/* Live Button (Right of My Bookings & Services) */}
           <button
             onClick={handleRecenter}
-            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all cursor-pointer active:scale-95"
             title="Live GPS Tracking Active - Click to Recenter Plumber"
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
                 isTechnicianOnline ? 'bg-emerald-400' : 'bg-white/40'
               } shadow-[0_0_8px_#34d399] animate-pulse shrink-0`}
             />
-            <span className="text-xs sm:text-sm font-black tracking-wider uppercase whitespace-nowrap">
+            <span className="text-[11px] sm:text-sm font-black tracking-wider uppercase whitespace-nowrap">
               LIVE
             </span>
             <span className="text-[10px] text-emerald-400/80 font-bold hidden md:inline">
@@ -373,19 +373,19 @@ console.log(orderData);
       </header>
 
       {/* ── MAIN RADAR BODY ── */}
-      <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-4 sm:space-y-6 w-full">
+      <main className="relative z-10 max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 space-y-3.5 sm:space-y-6 w-full">
         
         {/* Radar Info Top Strip */}
-        <div className="bg-[#0A1628]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-lg sm:text-xl shrink-0">
+        <div className="bg-[#0A1628]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 w-full">
+          <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-base sm:text-xl shrink-0">
               🛰️
             </div>
             <div className="min-w-0">
               <h2 className="font-['Space_Grotesk',sans-serif] font-bold text-xs sm:text-sm md:text-base text-white">
                 Customer Tracking Mode: Viewing Verified Technician In Transit
               </h2> 
-              <p className="text-[11px] sm:text-xs text-white/60 mt-0.5 leading-relaxed">
+              <p className="text-[10px] sm:text-xs text-white/60 mt-0.5 leading-relaxed">
                 Area Coverage:{' '}
                 <strong className="text-cyan-400">25 Km Radial Zone</strong> • Real-time distance updates:{' '}
                 <strong className="text-orange-400 font-mono">{liveKmDistance} km away</strong>
@@ -394,12 +394,12 @@ console.log(orderData);
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto justify-between md:justify-end pt-2 md:pt-0 border-t md:border-t-0 border-white/5">
-            <span className="text-[11px] sm:text-xs text-white/50 font-mono hidden sm:inline">
+            <span className="text-[10px] sm:text-xs text-white/50 font-mono hidden sm:inline">
               Live GPS Updates: <strong className="text-emerald-400 font-bold">Active</strong>
             </span>
             <button
               onClick={() => navigate(`/customer/payment/${activeOrderId}`)}
-              className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm tracking-wide shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 whitespace-nowrap"
+              className="w-full sm:w-auto px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm tracking-wide shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap"
             >
               <span>💳</span>
               <span>Complete Job & Pay →</span>
@@ -408,34 +408,34 @@ console.log(orderData);
         </div>
 
         {/* ── MAP CONTAINER (LEAFLET.JS with Free OpenStreetMap Tiles) ── */}
-        <div className="relative w-full h-[300px] xs:h-[340px] sm:h-[420px] md:h-[480px] lg:h-[520px] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-[#070E1A]">
+        <div className="relative w-full h-[260px] xs:h-[300px] sm:h-[380px] md:h-[460px] lg:h-[500px] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-[#070E1A]">
           
           {/* Leaflet DOM Anchor with Dark Obsidian Styling */}
           <div ref={mapContainerRef} className="dark-obsidian-map w-full h-full z-0" />
 
           {/* Floating Top Telemetry HUD Pill (Fully responsive across phones & desktops) */}
-          <div className="absolute top-3 sm:top-4 inset-x-2 sm:inset-x-4 flex justify-center pointer-events-none z-10 px-1">
-            <div className="bg-[#070E1A]/95 backdrop-blur-2xl border border-cyan-500/40 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-2xl sm:rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex flex-wrap items-center justify-center gap-1.5 sm:gap-3 text-center max-w-[96%]">
-              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_12px_#ff6b00] animate-ping shrink-0" />
-              <span className="font-['Space_Grotesk',sans-serif] font-bold text-[11px] sm:text-xs md:text-sm text-white">
+          <div className="absolute top-2.5 sm:top-4 inset-x-1.5 sm:inset-x-4 flex justify-center pointer-events-none z-10 px-1">
+            <div className="bg-[#070E1A]/95 backdrop-blur-2xl border border-cyan-500/40 px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex flex-wrap items-center justify-center gap-1.5 sm:gap-3 text-center max-w-[98%] sm:max-w-[96%]">
+              <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-orange-500 shadow-[0_0_12px_#ff6b00] animate-ping shrink-0" />
+              <span className="font-['Space_Grotesk',sans-serif] font-bold text-[10px] xs:text-xs sm:text-sm text-white">
                 Status:{' '}
                 <span className="text-cyan-400 font-extrabold uppercase">
                   {orderStatus || 'On the way'}
                 </span>
               </span>
               <span className="hidden xs:inline text-white/30">•</span>
-              <span className="font-['Space_Grotesk',sans-serif] font-black text-[11px] sm:text-xs md:text-sm text-orange-400">
+              <span className="font-['Space_Grotesk',sans-serif] font-black text-[10px] xs:text-xs sm:text-sm text-orange-400">
                 {liveKmDistance} KM away
               </span>
               <span className="text-white/30">•</span>
-              <span className="text-[11px] sm:text-xs md:text-sm font-bold text-emerald-400">
+              <span className="text-[10px] xs:text-xs sm:text-sm font-bold text-emerald-400">
                 ETA ~{estimatedMins} mins
               </span>
             </div>
           </div>
 
           {/* Floating 25 KM Radius Radar Chip */}
-          <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 pointer-events-none hidden xs:block">
+          <div className="absolute bottom-2.5 left-2.5 sm:bottom-4 sm:left-4 z-10 pointer-events-none hidden xs:block">
             <div className="bg-[#070E1A]/85 backdrop-blur-xl border border-white/10 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl flex items-center gap-2 text-[10px] sm:text-xs text-white/70 shadow-lg">
               <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-cyan-400 bg-cyan-500/20" />
               <span>
@@ -445,11 +445,11 @@ console.log(orderData);
           </div>
 
           {/* Floating Map Controls Cluster */}
-          <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 flex flex-col gap-1.5 sm:gap-2">
+          <div className="absolute bottom-2.5 right-2.5 sm:bottom-4 sm:right-4 z-10 flex flex-col gap-1.5 sm:gap-2">
             <button
               onClick={handleRecenter}
               aria-label="Recenter map bounds"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#0A1628]/90 hover:bg-[#0A1628] border border-cyan-500/40 text-cyan-400 hover:text-cyan-300 flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer font-bold text-sm sm:text-base"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#0A1628]/90 hover:bg-[#0A1628] border border-cyan-500/40 text-cyan-400 hover:text-cyan-300 flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer font-bold text-xs sm:text-base"
               title="Center on Plumber Location"
             >
               🎯
@@ -457,14 +457,14 @@ console.log(orderData);
             <button
               onClick={handleZoomIn}
               aria-label="Zoom in"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#0A1628]/90 hover:bg-[#0A1628] border border-white/15 text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer font-bold text-base sm:text-lg"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#0A1628]/90 hover:bg-[#0A1628] border border-white/15 text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer font-bold text-sm sm:text-lg"
             >
               +
             </button>
             <button
               onClick={handleZoomOut}
               aria-label="Zoom out"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#0A1628]/90 hover:bg-[#0A1628] border border-white/15 text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer font-bold text-base sm:text-lg"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#0A1628]/90 hover:bg-[#0A1628] border border-white/15 text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer font-bold text-sm sm:text-lg"
             >
               −
             </button>
@@ -615,7 +615,7 @@ console.log(orderData);
                 <div className="text-left sm:text-right">
                   <span className="text-[10px] text-white/40 uppercase font-bold">Estimated Cost</span>
                   <p className="font-black text-lg sm:text-xl text-orange-400">
-                    ₹{orderData?.total_Amount?.amount || 500}
+                    ₹{orderData?.total_Amount?.amount}
                   </p>
                 </div>
               </div>

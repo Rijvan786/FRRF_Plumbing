@@ -183,7 +183,7 @@ export default function Payment() {
         });
         // Direct cash receipt completion
         navigate(
-          `/technician/payment-success?OrderId=${OrderId || orderData?._id}&type=cash&amount=${totalAmount}`
+          `/customer/payment-success?OrderId=${OrderId || orderData?._id}&type=cash&amount=${totalAmount}`
         );
         return;
       }

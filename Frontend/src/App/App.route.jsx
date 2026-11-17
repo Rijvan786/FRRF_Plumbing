@@ -170,22 +170,8 @@ export const router = createBrowserRouter([
           </Protected>
         ),
       },
-      {
-        path: "/technician/verify-plumber-verify/:OrderId",
-        element: (
-          <Protected>
-            <Verify_Plumber_work />
-          </Protected>
-        ),
-      },
-      {
-        path: "/technician/verif/:OrderId",
-        element: (
-          <Protected>
-            <Verify_Plumber_work />
-          </Protected>
-        ),
-      },
+      
+     
      
       {
         path: "/technician/payment-success",
