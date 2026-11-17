@@ -1,6 +1,6 @@
 import { useDispatch } from "react-redux";
 import { setLoading as setAuthLoading } from "../../auth/state/auth.slice";
-import { CreateOrder, GetallServices, GetIdS, GetOrderDetail } from "../service/order.api";
+import { CreateOrder, CreateOrderPayment, GetallServices, GetIdS, GetOrderDetail, GetPaymentDetail, VerifyOrder } from "../service/order.api";
 import {
   setItem,
   setOrders,
@@ -10,6 +10,9 @@ import {
   setLoading as setOrderLoading,
   setError as setOrderError,
   clearOrderError,
+  setLoading,
+  setPaymentDetail,
+  setError,
 } from "../state/order.slice.jsx";
 
 export function useOrder() {
@@ -126,12 +129,54 @@ export function useOrder() {
     dispatch(setSelectedService(service));
   };
 
+
+    const handleCreateOrderPayment=async({accordingToWork,amount,PaymentType,currency,OrderId})=>{
+        try{
+          const data=await CreateOrderPayment({accordingToWork,amount,PaymentType,currency,OrderId})
+          return data
+        }
+        catch(error){
+          console.error("Error in handleCreateOrderPayment in useTechnician:", error);
+          throw error;
+        }
+    }
+    const handleVerifyOrder = async ({ razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId }) => {
+      try {
+        const data = await VerifyOrder({ razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId });
+        return data;
+      } catch (error) {
+        console.error("Error in handleVerifyOrder in useTechnician:", error);
+        throw error;
+      }
+    };
+  
+    const handleGetPaymentDetail = async (OrderId) => {
+      try {
+        dispatch(setLoading(true));
+        const data = await GetPaymentDetail(OrderId);
+        console.log(data);
+        if (data) {
+          dispatch(setPaymentDetail(data.payment));
+        }
+        return data;
+      } catch (error) {
+        console.error("Error in handleGetPaymentDetail in useTechnician:", error);
+        dispatch(setError(error?.response?.data?.message || error?.message));
+        throw error;
+      } finally {
+        dispatch(setLoading(false));
+      }
+    };
+
   return {
     handleGetOrder,
     handleCreateOrder,
     handleGetallService,
     handleSetSelectedService,
     handleGetIdS,
+    handleCreateOrderPayment,
+    handleVerifyOrder,
+    handleGetPaymentDetail
   };
 }
 

@@ -1,7 +1,9 @@
 import { useDispatch } from "react-redux";
 import { setLoading as setAuthLoading, setUser } from "../../auth/state/auth.slice.jsx";
-import { GetTechnician, TechRegister, AcceptJob, GetTechnicianNotifications,
-   CreateOrderPayment, VerifyOrder, GetPaymentDetail, ToggleOnlineStatus, EditTechnicianProfile,
+import { GetTechnician, TechRegister, AcceptJob, GetTechnicianNotifications, ToggleOnlineStatus, EditTechnicianProfile,
+   VerifyPlumberWork,
+   GetPaymentDetail,
+   GetIdS,
  } from "../services/technician.api.jsx";
 import {
   setTechnician,
@@ -12,7 +14,12 @@ import {
   setIsAvailable,
   setNotifications,
   setNewJobOrderId,
+  dismissNotification,
+  setLoading,
   setPaymentDetail,
+  setError,
+  setCurrentOrder,
+  setVerifiedWork,
 } from "../state/technician.slice.jsx";
 export function useTechnician() {
   const dispatch = useDispatch();
@@ -107,15 +114,28 @@ export function useTechnician() {
       return result;
     } catch (error) {
       console.error("Error in handleAcceptJob in useTechnician:", error);
-      dispatch(setTechError(error?.response?.data?.message || error?.message));
-      throw error;
+      const errMsg = error?.response?.data?.message || error?.message || "";
+      const isAlreadyAccepted =
+        Boolean(error?.response?.data?.alreadyAccepted) ||
+        errMsg.toLowerCase().includes("already") ||
+        errMsg.toLowerCase().includes("taken");
+
+      if (isAlreadyAccepted && OrderId) {
+        // 🚀 If already accepted by another technician, remove it so it does not show for this technician!
+        dispatch(dismissNotification(OrderId.toString()));
+      }
+
+      dispatch(setTechError(errMsg));
+      const enrichedErr = new Error(errMsg);
+      enrichedErr.alreadyAccepted = isAlreadyAccepted;
+      enrichedErr.response = error?.response;
+      throw enrichedErr;
     } finally {
       dispatch(setTechLoading(false));
     }
   };
 
-
-   const handleGetNotifications = async () => {
+const handleGetNotifications = async () => {
     try {
       const data = await GetTechnicianNotifications();
       if (data?.notifications && Array.isArray(data.notifications)) {
@@ -132,31 +152,34 @@ export function useTechnician() {
     }
   };
 
-  const handleCreateOrderPayment=async({accordingToWork,amount,PaymentType,currency,OrderId})=>{
-      try{
-        const data=await CreateOrderPayment({accordingToWork,amount,PaymentType,currency,OrderId})
-        return data
-      }
-      catch(error){
-        console.error("Error in handleCreateOrderPayment in useTechnician:", error);
-        throw error;
-      }
-  }
-  const handleVerifyOrder = async ({ razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId }) => {
+  const handleGetIdS = async ({ OrderId }) => {
     try {
-      const data = await VerifyOrder({ razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId });
+      dispatch(setTechLoading(true));
+      const data = await GetIdS({ OrderId });
+      if (data?.order) {
+        dispatch(setCurrentOrder(data.order));
+      } else if (data) {
+        dispatch(setCurrentOrder(data));
+      }
       return data;
     } catch (error) {
-      console.error("Error in handleVerifyOrder in useTechnician:", error);
+      console.error("Error in handleGetIdS in useTechnician:", error);
+      const msg = error?.response?.data?.message || error?.message || "Failed to fetch order by ID";
+      dispatch(setTechError(msg));
       throw error;
+    } finally {
+      dispatch(setTechLoading(false));
     }
   };
-
+  
   const handleGetPaymentDetail = async (OrderId) => {
     try {
       dispatch(setTechLoading(true));
       const data = await GetPaymentDetail(OrderId);
-      if (data) {
+      console.log("handleGetPaymentDetail data:", data);
+      if (data?.payment) {
+        dispatch(setPaymentDetail(data.payment));
+      } else if (data) {
         dispatch(setPaymentDetail(data));
       }
       return data;
@@ -168,6 +191,29 @@ export function useTechnician() {
       dispatch(setTechLoading(false));
     }
   };
+
+  const handleVerifiedPlumberWork = async (formData) => {
+    try {
+      dispatch(setTechLoading(true));
+      const data = await VerifyPlumberWork(formData);
+      if (data) {
+        dispatch(setVerifiedWork(data));
+        if (data?.order) {
+          dispatch(setCurrentOrder(data.order));
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error("Error in handleVerifiedPlumberWork in useTechnician:", error);
+      dispatch(setTechError(error?.response?.data?.message || error?.message));
+      throw error;
+    } finally {
+      dispatch(setTechLoading(false));
+    }
+  };
+
+
+
 
   const handleToggleOnline = async (status) => {
     try {
@@ -226,10 +272,10 @@ export function useTechnician() {
     handleToggleOnline,
     handleToggleAvailability,
     handleGetNotifications,
-    handleCreateOrderPayment,
-    handleVerifyOrder,
-    handleGetPaymentDetail,
     handleEditProfile,
+     handleGetIdS, 
+     handleGetPaymentDetail,
+   handleVerifiedPlumberWork
   };
 }
 

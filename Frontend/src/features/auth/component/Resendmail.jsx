@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../hook/useAuth.jsx';
-import Navbar from "../../../App/Navbar.jsx"
+import Navbar from "../../../App/Navbar.jsx";
+import { useToast } from './ToastPopup';
 
 
 /* ── Google Fonts (matching Home.jsx) ─────────────────────────── */
@@ -33,6 +34,7 @@ export default function Resendmail() {
 
   const authError = useSelector((state) => state.auth?.Error);
   const { handleResendMail } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -57,9 +59,20 @@ export default function Resendmail() {
     try {
       await handleResendMail({ email: email.trim() });
       setSent(true);
+      showToast({
+        type: 'success',
+        message: 'Verification link resent! Please check your email inbox.',
+        duration: 4500,
+      });
       setCooldown(60); // 1 minute active timer
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || err?.message || 'Failed to resend verification email.');
+      const msg = err?.response?.data?.message || err?.message || 'Failed to resend verification email. Please try again.';
+      setErrorMsg(msg);
+      showToast({
+        type: 'error',
+        message: msg,
+        duration: 4500,
+      });
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { setNewJobOrderId, addNotification, setNotifications } from "../state/technician.slice.jsx";
-import { subscribeToJobNotifications } from "../services/socket.api.jsx";
+import { setNewJobOrderId, addNotification, setNotifications, dismissNotification } from "../state/technician.slice.jsx";
+import { getSocket, subscribeToJobNotifications } from "../services/socket.api.jsx";
 import { GetTechnicianNotifications } from "../services/technician.api.jsx";
 
 export function useNotification({ technicianId, userId }) {
@@ -35,6 +35,25 @@ export function useNotification({ technicianId, userId }) {
             onJobReceived: handleJob,
           })
         : null;
+
+    // 🚀 Listen for jobs taken by other technicians and remove them instantly!
+    const socket = getSocket();
+    const handleJobTaken = (data) => {
+      console.log("⚡ job-taken alert received via socket:", data);
+      const takenOrderId = data?.orderId || data?.OrderId || data?.id;
+      const takenByTech = data?.technicianId ? String(data.technicianId) : null;
+      const myId = String(activeId);
+
+      // If taken by another technician, or broadcasted to remove from others:
+      if (takenOrderId) {
+        if (!takenByTech || takenByTech !== myId) {
+          dispatch(dismissNotification(takenOrderId.toString()));
+        }
+      }
+    };
+
+    socket.on("job-taken", handleJobTaken);
+    socket.on("job-already-accepted", handleJobTaken);
 
     function handleJob(data) {
       console.log("⚡ Job dispatch alert received in useNotification hook:", data);
@@ -77,6 +96,8 @@ export function useNotification({ technicianId, userId }) {
     return () => {
       if (cleanupTech) cleanupTech();
       if (cleanupUser) cleanupUser();
+      socket.off("job-taken", handleJobTaken);
+      socket.off("job-already-accepted", handleJobTaken);
     };
   }, [technicianId, userId, dispatch]);
 }

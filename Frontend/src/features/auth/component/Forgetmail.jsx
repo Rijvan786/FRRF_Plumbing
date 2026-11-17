@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../hook/useAuth';
-import Navbar from "../../../App/Navbar.jsx"
+import Navbar from "../../../App/Navbar.jsx";
+import { useToast } from './ToastPopup';
 
 
 /* ── Google Fonts (matching Home.jsx) ─────────────────────────── */
@@ -34,6 +35,7 @@ export default function Forgetmail() {
   const authError = useSelector((state) => state.auth?.Error);
   const authLoading = useSelector((state) => state.auth?.Loading);
   const { handleForgetMail } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -58,9 +60,20 @@ export default function Forgetmail() {
     try {
       await handleForgetMail({ email: email.trim() });
       setSent(true);
+      showToast({
+        type: 'success',
+        message: 'Password reset link sent! Please check your email inbox to proceed.',
+        duration: 4500,
+      });
       setCooldown(60); // 1 minute active timer
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || err?.message || 'Failed to send password reset link.');
+      const msg = err?.response?.data?.message || err?.message || 'Failed to send password reset link. Please check your email and try again.';
+      setErrorMsg(msg);
+      showToast({
+        type: 'error',
+        message: msg,
+        duration: 4500,
+      });
     } finally {
       setLoading(false);
     }

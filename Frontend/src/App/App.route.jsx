@@ -16,12 +16,12 @@ import TechnicianTracking from "../features/technician/pages/TechnicianTracking.
 import NotFound from "../features/auth/component/NotFound.jsx";
 import Protected from "../features/auth/component/Protected.jsx";
 import AllServices from "../features/order/pages/AllServices.jsx";
-import createService from "../features/admin/components/createService.jsx";
 import AdminDashboard from "../features/admin/pages/admin_Dashboard.jsx";
 import Customer_tracking from "../features/socketio/pages/customer_tracking.jsx";
 import AppLayout from "./AppLayout.jsx";
-import PaymentSuccess from "../features/technician/component/Payment-success.jsx";
-import Payment from "../features/technician/pages/Payment.jsx";
+import Payment from "../features/order/components/Payment.jsx"
+import PaymentSuccess from "../features/order/components/Payment-success.jsx"
+import Verify_Plumber_work from "../features/technician/component/Verify_Plumber_work.jsx";
 
 export const router = createBrowserRouter([
   {
@@ -106,30 +106,7 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  {
-    path: "/payment/:OrderId",
-    element: (
-      <Protected>
-        <Payment />
-      </Protected>
-    ),
-  },
-  {
-    path: "/Payment-success",
-    element: (
-      <Protected>
-        <PaymentSuccess />
-      </Protected>
-    ),
-  },
-  {
-    path: "/payment-success",
-    element: (
-      <Protected>
-        <PaymentSuccess />
-      </Protected>
-    ),
-  },
+ 
   {
     path: "/technician",
     children: [
@@ -177,18 +154,48 @@ export const router = createBrowserRouter([
           </Protected>
         ),
       },
-    {
-      path:"/technician/payment/:OrderId",
-      element:(<Protected>
-        <Payment/>
-     </Protected>)
-    },
+      {
+        path: "/technician/verify-plumber-work",
+        element: (
+          <Protected>
+            <Verify_Plumber_work />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/verify-plumber-work/:OrderId",
+        element: (
+          <Protected>
+            <Verify_Plumber_work />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/verify-plumber-verify/:OrderId",
+        element: (
+          <Protected>
+            <Verify_Plumber_work />
+          </Protected>
+        ),
+      },
+      {
+        path: "/technician/verif/:OrderId",
+        element: (
+          <Protected>
+            <Verify_Plumber_work />
+          </Protected>
+        ),
+      },
+     
       {
         path: "/technician/payment-success",
-        element:(<Protected>
-          <PaymentSuccess />
-        </Protected>)
-      }
+        element: (
+          <Protected>
+            <PaymentSuccess />
+          </Protected>
+        ),
+      },
+    
     ],
   },
   {

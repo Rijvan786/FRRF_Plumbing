@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useOrder } from '../hook/useOrder';
 import { setSelectedService } from '../state/order.slice.jsx';
 import Navbar from "../../../App/Navbar.jsx";
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 
 /* ─────────────────────────────────────────────────────────
    AUTH POPUP — shown after booking for unauthenticated users
@@ -267,6 +268,7 @@ export default function Booking() {
   const createdOrder = Array.isArray(reduxOrders) ? reduxOrders[0] : (reduxOrders?._id ? reduxOrders : null);
   const [visible, setVisible] = useState(false);
   const fileInputRef = useRef(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -302,7 +304,10 @@ export default function Booking() {
   // Auto-detect GPS Coordinates
   const detectLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      showToast({
+        type: 'warning',
+        message: 'Geolocation is not supported by your browser.',
+      });
       return;
     }
     setLocating(true);
@@ -313,10 +318,18 @@ export default function Booking() {
           latitude: pos.coords.latitude.toFixed(6),
           longitude: pos.coords.longitude.toFixed(6),
         }));
+        showToast({
+          type: 'success',
+          message: 'GPS location detected successfully!',
+          duration: 3000,
+        });
         setLocating(false);
       },
       (err) => {
-        alert('Could not retrieve location: ' + err.message);
+        showToast({
+          type: 'warning',
+          message: 'Could not retrieve location automatically. Please enter your address manually.',
+        });
         setLocating(false);
       },
       { timeout: 10000 }
@@ -329,7 +342,12 @@ export default function Booking() {
     setErrorMessage('');
 
     if (!activeService?._id) {
-      setErrorMessage('Please wait for real services to load from the database or select a service.');
+      const msg = 'Please select a plumbing service before submitting your booking.';
+      setErrorMessage(msg);
+      showToast({
+        type: 'warning',
+        message: msg,
+      });
       return;
     }
 
@@ -373,20 +391,31 @@ export default function Booking() {
       const res = await handleCreateOrder(formData);
 
       setSuccess(true);
+      showToast({
+        type: 'success',
+        message: `Booking received! We are assigning the nearest certified technician for ${activeService.serviceName}.`,
+        duration: 5000,
+      });
       setCooldown(60); // 1-minute active cooldown
 
       // Show auth popup if user is NOT logged in
-    
         setTimeout(() => setShowAuthPopup(true), 800);
      
     } catch (err) {
       console.error('Booking submission error:', err);
-      const msg = err?.response?.data?.message || err?.message || 'Failed to submit booking. Please try again.';
-      if (Array.isArray(msg)) {
-        setErrorMessage(msg.map((m) => m.msg || m.message || JSON.stringify(m)).join(', '));
+      const rawMsg = err?.response?.data?.message || err?.message || 'Failed to submit booking. Please try again.';
+      let msg = '';
+      if (Array.isArray(rawMsg)) {
+        msg = rawMsg.map((m) => m.msg || m.message || JSON.stringify(m)).join(', ');
       } else {
-        setErrorMessage(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        msg = typeof rawMsg === 'string' ? rawMsg : JSON.stringify(rawMsg);
       }
+      setErrorMessage(msg);
+      showToast({
+        type: 'error',
+        message: msg,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -555,9 +584,9 @@ export default function Booking() {
                             {srv.serviceName || srv.category}
                           </div>
                           <div className="text-[10px] text-white/45 truncate mt-0.5">
-                            {srv.category} • {symbol}{amount}
+                            {srv.category} • {amount>0?symbol:null}{amount>0?amount:"As Per Work"}
                           </div>
-                        </div>
+                        </div>  
                       </button>
                     );
                   })}
@@ -600,10 +629,10 @@ export default function Booking() {
                       Fixed Price
                     </div>
                     <div className="font-['Plus_Jakarta_Sans',sans-serif] font-black text-sm sm:text-base text-orange-400 leading-tight">
-                      {activeService.price?.currency === 'USD' ? '$' : '₹'}
-                      {typeof activeService.price === 'object' && activeService.price !== null
+                      {activeService.price.amount>0 ?activeService.price?.currency === 'USD' ? '$' : '₹':null}
+                      {activeService.price.amount?typeof activeService.price === 'object' && activeService.price !== null
                         ? activeService.price.amount
-                        : activeService.price}
+                        : activeService.price :"As Per Work"}
                     </div>
                     <div className="text-[10px] font-mono text-cyan-400/80">
                       ID: {activeService._id.slice(-6).toUpperCase()}

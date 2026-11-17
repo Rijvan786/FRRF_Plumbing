@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Form, useNavigate } from 'react-router-dom';
 import { usepulmberService } from '../hook/useplumberservice.jsx';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 import { current } from '@reduxjs/toolkit';
 
 /* ── Inline SVG Icons ── */
@@ -52,6 +53,7 @@ const QUICK_DURATIONS = ['30', '45', '60', '90', '120'];
 export default function CreateService({ isModal = false, onClose, onServiceCreated }) {
   const navigate = useNavigate();
   const { handleCreateService, loadingAction } = usepulmberService();
+  const { showToast } = useToast();
   const fileInputRef = useRef(null);
 
   // Form State
@@ -139,15 +141,21 @@ export default function CreateService({ isModal = false, onClose, onServiceCreat
     setSuccessMsg('');
 
     if (!formData.serviceName.trim()) {
-      setErrorMsg('Please enter the Service Name.');
+      const msg = 'Please enter the Service Name.';
+      setErrorMsg(msg);
+      showToast({ type: 'warning', message: msg });
       return;
     }
     if (!formData.amount || Number(formData.amount) <= 0) {
-      setErrorMsg('Please enter a valid price amount.');
+      const msg = 'Please enter a valid price amount.';
+      setErrorMsg(msg);
+      showToast({ type: 'warning', message: msg });
       return;
     }
     if (!formData.EstimatedTimeMinutes || Number(formData.EstimatedTimeMinutes) <= 0) {
-      setErrorMsg('Please specify estimated time in minutes.');
+      const msg = 'Please specify estimated time in minutes.';
+      setErrorMsg(msg);
+      showToast({ type: 'warning', message: msg });
       return;
     }
 
@@ -194,6 +202,11 @@ export default function CreateService({ isModal = false, onClose, onServiceCreat
       };
 
       setSuccessMsg(`Service "${formData.serviceName}" is now published and Running!`);
+      showToast({
+        type: 'success',
+        message: `Great! "${formData.serviceName}" has been successfully added to active services.`,
+        duration: 4000,
+      });
 
       if (onServiceCreated) {
         onServiceCreated(createdServiceData);
@@ -234,13 +247,22 @@ export default function CreateService({ isModal = false, onClose, onServiceCreat
       if (onServiceCreated) {
         onServiceCreated(fallbackService);
         setSuccessMsg(`Service "${formData.serviceName}" published locally!`);
+        showToast({
+          type: 'success',
+          message: `Service "${formData.serviceName}" published!`,
+          duration: 3500,
+        });
         setTimeout(() => {
           if (isModal && onClose) onClose();
         }, 1100);
       } else {
-        setErrorMsg(
-          err?.response?.data?.message || err?.message || 'Failed to create service. Please check fields.'
-        );
+        const msg = err?.response?.data?.message || err?.message || 'Failed to create service. Please check fields.';
+        setErrorMsg(msg);
+        showToast({
+          type: 'error',
+          message: msg,
+          duration: 4500,
+        });
       }
     } finally {
       setSubmitting(false);

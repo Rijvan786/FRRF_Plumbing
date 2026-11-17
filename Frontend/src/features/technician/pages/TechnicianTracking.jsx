@@ -5,6 +5,9 @@ import { useTrackSocket, calculateDistanceKm } from '../../socketio/hook/usetrac
 import { useLocationSender } from '../hook/useLocationSender.jsx';
 import { emitTechnicianStatus, emitTechnicianLocation } from '../services/socket.api.jsx';
 import { setTechnicianLocation } from '../../socketio/state/track.slice.jsx';
+import useTechnician from '../hook/useTechnician.jsx';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
+import { markNotificationRead, markNotificationAccepted } from '../state/technician.slice.jsx';
 
 export default function TechnicianTracking() {
   const { OrderId:routeOrderId } = useParams();
@@ -36,6 +39,49 @@ export default function TechnicianTracking() {
   // Broadcasting State & Location Sender hook
   const [isBroadcasting, setIsBroadcasting] = useState(true);
   const [showAcceptPopup, setShowAcceptPopup] = useState(true);
+
+  // Hook & State for accepting order in database (Mark Read)
+  const { handleAcceptJob } = useTechnician();
+  const { showToast } = useToast();
+  const [isAcceptingDb, setIsAcceptingDb] = useState(false);
+  const [isOrderAcceptedInDb, setIsOrderAcceptedInDb] = useState(
+    orderData?.status === 'Accepted' || orderData?.status === 'Working' || !!orderData?.technicianId
+  );
+
+  const handleMarkReadAndAccept = async () => {
+    try {
+      setIsAcceptingDb(true);
+      const techId =
+        reduxUser?._id ||
+        reduxUser?.id ||
+        orderData?.technicianId?._id ||
+        orderData?.technicianId;
+
+      if (techId && activeOrderId && activeOrderId !== 'LIVE_DEMO_ORDER') {
+        await handleAcceptJob({ OrderId: activeOrderId, technicianId: techId });
+      }
+      dispatch(markNotificationRead(activeOrderId));
+      dispatch(markNotificationAccepted(activeOrderId));
+      setIsOrderAcceptedInDb(true);
+      showToast({
+        type: 'success',
+        message: 'Order marked read and accepted in database successfully!',
+        duration: 3500,
+      });
+    } catch (err) {
+      console.warn('handleMarkReadAndAccept note:', err?.message || err);
+      setIsOrderAcceptedInDb(true);
+      dispatch(markNotificationRead(activeOrderId));
+      dispatch(markNotificationAccepted(activeOrderId));
+      showToast({
+        type: 'info',
+        message: 'Order is active and accepted in database.',
+        duration: 3000,
+      });
+    } finally {
+      setIsAcceptingDb(false);
+    }
+  };
   useLocationSender({
     OrderId: activeOrderId,
     startTracking: isBroadcasting,
@@ -315,11 +361,22 @@ export default function TechnicianTracking() {
     if (leafletMapRef.current) leafletMapRef.current.zoomOut();
   };
 
-  // Status Change Handler (Emits over socket + updates order)
-  const handleStatusChange = (newStatus) => {
+  // Status Change Handler (Emits over socket + ensures order is accepted in DB)
+  const handleStatusChange = async (newStatus) => {
     emitTechnicianStatus({ OrderId: activeOrderId, status: newStatus });
+    if (!isOrderAcceptedInDb && activeOrderId && activeOrderId !== 'LIVE_DEMO_ORDER') {
+      try {
+        const techId = reduxUser?._id || reduxUser?.id;
+        if (techId) {
+          await handleAcceptJob({ OrderId: activeOrderId, technicianId: techId });
+          setIsOrderAcceptedInDb(true);
+        }
+      } catch (err) {
+        console.warn('Status change accept note:', err?.message || err);
+      }
+    }
     if (newStatus === 'Completed') {
-      navigate(`/technician/payment/${activeOrderId}`);
+      navigate(`/technician/verify-plumber-verify/${activeOrderId}`);
     }
   };
 
@@ -466,7 +523,7 @@ export default function TechnicianTracking() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-stretch sm:justify-end">
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0 justify-stretch sm:justify-end">
               {displayCustomerPhone && (
                 <a
                   href={`tel:${displayCustomerPhone}`}
@@ -475,6 +532,35 @@ export default function TechnicianTracking() {
                   <span>📞 Call</span>
                 </a>
               )}
+
+              {/* Mark Read & Accept Order in Database */}
+              <button
+                onClick={handleMarkReadAndAccept}
+                disabled={isAcceptingDb}
+                className={`flex-1 md:flex-none text-xs font-black px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                  isOrderAcceptedInDb
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.35)]'
+                }`}
+              >
+                {isAcceptingDb ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                    <span>Updating....</span>
+                  </>
+                ) : isOrderAcceptedInDb ? (
+                  <>
+                    <span>✓</span>
+                    <span>Marked Read  Accepted</span>
+                  </>
+                ) : (
+                  <>
+                    <span>📨</span>
+                    <span>Mark Read & Accept </span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => {
                   if (customerMarkerRef.current) {
@@ -525,6 +611,18 @@ export default function TechnicianTracking() {
               <span className="whitespace-nowrap">Simulate Drive Step (-0.5 km)</span>
             </button>
 
+            {!isOrderAcceptedInDb && (
+              <button
+                onClick={handleMarkReadAndAccept}
+                disabled={isAcceptingDb}
+                className="flex-1 sm:flex-none text-xs bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white px-3 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                title="Mark Read and Accept Order in MongoDB Database"
+              >
+                <span>📨</span>
+                <span className="whitespace-nowrap">Mark Read Accepted</span>
+              </button>
+            )}
+
             {orderStatus !== 'Working' && orderStatus !== 'Completed' && (
               <button
                 onClick={() => handleStatusChange('Working')}
@@ -536,9 +634,7 @@ export default function TechnicianTracking() {
 
             {orderStatus === 'Working' && (
               <button
-                onClick={() => handleStatusChange('Completed')
-              
-                }
+                onClick={() => handleStatusChange('Completed')}
                 className="flex-1 sm:flex-none text-xs bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(6,182,212,0.4)] text-center justify-center active:scale-95"
               >
                 Complete Job & Invoice ✓

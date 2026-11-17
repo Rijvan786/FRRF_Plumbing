@@ -19,7 +19,7 @@ const OrderSchema=mongoose.Schema({
         type:ServiceSchema
          
     },
-     issuedDescription:{  
+     issueDescription:{  
       type: String,
  
     },
@@ -34,8 +34,19 @@ const OrderSchema=mongoose.Schema({
         }
       }
      ],
-   
- 
+    PaymentWorkDetail:{
+      type:String,
+      default:""
+    },
+     verifiedIssueImageUrl:[
+      {
+        url:{
+          type:String,
+          required:true
+        }
+      }
+     ],
+     
  // 5. बुकिंग का स्टेटस (Live Tracking के लिए)
     status: {
       type: String,

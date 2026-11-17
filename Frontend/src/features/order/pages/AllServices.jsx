@@ -412,8 +412,7 @@ export default function AllServices() {
                         e.target.src = '/images/leakage.png';
                       }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0B1528] via-[#0B1528]/40 to-transparent" />
-
+                
                     {/* Category Badge Top Left */}
                     <div className="absolute top-3 left-3">
                       <span
@@ -441,7 +440,7 @@ export default function AllServices() {
                   </div>
 
                   {/* Card Body */}
-                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                  <div className="p-5 sm:p-5 flex-1 flex flex-col justify-between">
                     <div>
                       <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-black text-base sm:text-lg text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
                         {service.serviceName}
@@ -459,7 +458,7 @@ export default function AllServices() {
                             Fixed Rate
                           </div>
                           <div className="font-['Plus_Jakarta_Sans',sans-serif] font-black text-2xl text-orange-500 leading-tight">
-                            {symbol}{amount}
+                            {amount>0?symbol:null}{amount===0?"As per Work":amount}
                           </div>
                         </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from "../../../App/Navbar.jsx"
 import { useTechnician } from '../hook/useTechnician.jsx';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 import PhoneInputPkg from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
@@ -382,6 +383,7 @@ export default function TechnicianRegister() {
   const [errorMsg, setErrorMsg]       = useState('');
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [showErrorPopup,   setShowErrorPopup]   = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -407,7 +409,10 @@ export default function TechnicianRegister() {
   // Auto-detect GPS Coordinates
   const detectLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      showToast({
+        type: 'warning',
+        message: 'Geolocation is not supported by your browser.',
+      });
       return;
     }
     setLocating(true);
@@ -418,10 +423,18 @@ export default function TechnicianRegister() {
           latitude: pos.coords.latitude.toFixed(6),
           longitude: pos.coords.longitude.toFixed(6),
         }));
+        showToast({
+          type: 'success',
+          message: 'GPS coordinates detected successfully!',
+          duration: 3000,
+        });
         setLocating(false);
       },
       (err) => {
-        alert('Could not retrieve GPS coordinates: ' + err.message);
+        showToast({
+          type: 'warning',
+          message: 'Could not retrieve GPS coordinates. Please allow location access or type address manually.',
+        });
         setLocating(false);
       },
       { timeout: 10000 }
@@ -435,14 +448,24 @@ export default function TechnicianRegister() {
     setShowErrorPopup(false);
 
     if (form.password.length < 8 || !/(?=.*\d)/.test(form.password) || !/(?=.*[@$!%*?&#])/.test(form.password)) {
-      setErrorMsg('Password must be at least 8 characters and include at least one number and one special character (@$!%*?&#).');
+      const msg = 'Password must be at least 8 characters and include at least one number and one special character (@$!%*?&#).';
+      setErrorMsg(msg);
       setShowErrorPopup(true);
+      showToast({
+        type: 'warning',
+        message: msg,
+      });
       return;
     }
 
     if (!agree) {
-      setErrorMsg('Please agree to the technician partner policy to proceed.');
+      const msg = 'Please agree to the technician partner policy to proceed.';
+      setErrorMsg(msg);
       setShowErrorPopup(true);
+      showToast({
+        type: 'warning',
+        message: msg,
+      });
       return;
     }
 
@@ -464,17 +487,29 @@ export default function TechnicianRegister() {
 
       setCooldown(60);
       setShowSuccessPopup(true); // ✅ show success popup
+      showToast({
+        type: 'success',
+        message: 'Technician registration submitted! Please check your email inbox to verify your account.',
+        duration: 5000,
+      });
     } catch (err) {
       console.error('Technician registration error:', err);
       const apiMsg = err?.response?.data?.message;
+      let msg = '';
       if (Array.isArray(apiMsg)) {
-        setErrorMsg(apiMsg.map((m) => m.msg || m.message).join(', '));
+        msg = apiMsg.map((m) => m.msg || m.message).join(', ');
       } else if (typeof apiMsg === 'string') {
-        setErrorMsg(apiMsg);
+        msg = apiMsg;
       } else {
-        setErrorMsg(err?.message || 'Registration failed. Please verify your details.');
+        msg = err?.message || 'Registration failed. Please verify your details.';
       }
+      setErrorMsg(msg);
       setShowErrorPopup(true); // ❌ show error popup
+      showToast({
+        type: 'error',
+        message: msg,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }

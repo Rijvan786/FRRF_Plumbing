@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../hook/useAuth';
-import Navbar from "../../../App/Navbar.jsx"
+import Navbar from "../../../App/Navbar.jsx";
+import { useToast } from './ToastPopup';
 
 
 /* ── Google Fonts (matching Home.jsx) ─────────────────────────── */
@@ -62,6 +63,7 @@ export default function ForgetPassword() {
   const authError = useSelector((state) => state.auth?.Error);
   const authLoading = useSelector((state) => state.auth?.Loading);
   const { handleForgetPassword } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -83,11 +85,15 @@ export default function ForgetPassword() {
     setErrorMsg('');
 
     if (password !== confirmPw) {
-      setErrorMsg('Passwords do not match. Please verify both fields.');
+      const msg = 'Passwords do not match. Please verify both fields.';
+      setErrorMsg(msg);
+      showToast({ type: 'warning', message: msg });
       return;
     }
     if (password.length < 6) {
-      setErrorMsg('Password should be at least 6 characters.');
+      const msg = 'Password should be at least 6 characters.';
+      setErrorMsg(msg);
+      showToast({ type: 'warning', message: msg });
       return;
     }
 
@@ -98,12 +104,23 @@ export default function ForgetPassword() {
         NewPassword: password,
       });
       setSuccess(true);
+      showToast({
+        type: 'success',
+        message: 'Password updated successfully! Redirecting you to login...',
+        duration: 3500,
+      });
       setCooldown(60); // 1 minute active timer
       setTimeout(() => {
         navigate('/customer/login');
       }, 2500);
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || err?.message || 'Failed to update password. Please check your credentials.');
+      const msg = err?.response?.data?.message || err?.message || 'Failed to update password. Please check your credentials.';
+      setErrorMsg(msg);
+      showToast({
+        type: 'error',
+        message: msg,
+        duration: 4500,
+      });
     } finally {
       setLoading(false);
     }

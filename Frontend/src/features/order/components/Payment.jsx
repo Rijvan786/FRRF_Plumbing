@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useRazorpay } from 'react-razorpay';
-import { useTechnician } from '../hook/useTechnician.jsx';
+import { useOrder } from '../hook/useOrder.jsx';
 import { GetIdS } from '../../order/service/order.api.jsx';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 
 export default function Payment() {
   const { OrderId } = useParams();
   const navigate = useNavigate();
   const { Razorpay, isLoaded } = useRazorpay();
-  const { handleCreateOrderPayment, handleVerifyOrder } = useTechnician();
+  const { handleCreateOrderPayment, handleVerifyOrder } = useOrder();
+  const { showToast } = useToast();
 
   // Current logged in user from Redux
   const reduxUser = useSelector((state) => state.auth?.User);
@@ -73,9 +75,9 @@ export default function Payment() {
           key: razorpayKey,
           amount: totalAmount * 100, // paise
           currency: 'INR',
-          name: 'FRRF Plumbing Services',
+          name: 'FRRF-Plumbing',
           description: `Invoice for ${orderData?.ServiceDetails?.serviceName || 'Plumbing Service'} - Order #${(OrderId || '').slice(-6)}`,
-          image: '/black.png',
+          image: `${window.location.origin}/razorpay.png`,
           order_id: createdOrder?.id || createdOrder?.orderId,
           handler: async (response) => {
             try {
@@ -91,7 +93,7 @@ export default function Payment() {
 
               if (verifyResult?.success || verifyResult?.payment) {
                 navigate(
-                  `/technician/payment-success?OrderId=${OrderId || orderData?._id}&paymentId=${response.razorpay_payment_id}`
+                  `/customer/payment-success?OrderId=${OrderId || orderData?._id}&paymentId=${response.razorpay_payment_id}`
                 );
                 resolve(verifyResult);
               } else {
@@ -102,7 +104,7 @@ export default function Payment() {
               console.error('Verification error:', vErr);
               // Still navigate if payment was received
               navigate(
-                `/technician/payment-success?OrderId=${OrderId || orderData?._id}&paymentId=${response.razorpay_payment_id}`
+                `/customer/payment-success?OrderId=${OrderId || orderData?._id}&paymentId=${response.razorpay_payment_id}`
               );
               resolve(response);
             } finally {
@@ -152,7 +154,9 @@ export default function Payment() {
     setErrorMessage('');
 
     if (!otherWork.trim()) {
-      setErrorMessage('Please enter details of the work done in "Other work (according to work)".');
+      const msg = 'Please enter details of the work done in "Other work (according to work)".';
+      setErrorMessage(msg);
+      showToast({ type: 'warning', message: msg });
       return;
     }
 
@@ -172,6 +176,11 @@ export default function Payment() {
 
       // 2. Handle Online vs Cash flow
       if (paymentType === 'cash') {
+        showToast({
+          type: 'success',
+          message: 'Cash payment confirmed! Generating digital receipt...',
+          duration: 3500,
+        });
         // Direct cash receipt completion
         navigate(
           `/technician/payment-success?OrderId=${OrderId || orderData?._id}&type=cash&amount=${totalAmount}`
@@ -188,9 +197,13 @@ export default function Payment() {
       }
     } catch (err) {
       console.error('Error during Pay Now:', err);
-      setErrorMessage(
-        err?.response?.data?.message || err?.message || 'Payment initiation failed. Please try again.'
-      );
+      const msg = err?.response?.data?.message || err?.message || 'Payment initiation failed. Please try again.';
+      setErrorMessage(msg);
+      showToast({
+        type: 'error',
+        message: msg,
+        duration: 4500,
+      });
       setIsProcessing(false);
     }
   };

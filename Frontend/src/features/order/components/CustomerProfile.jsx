@@ -2,11 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/hook/useAuth.jsx';
-import { GetMe } from '../../auth/service/auth.api.jsx';
-import { setUser } from '../../auth/state/auth.slice.jsx';
-import Navbar from "../../../App/Navbar.jsx";
+import { setUser } from '../../auth/state/auth.slice.jsx';    
 import { useOrder } from '../hook/useOrder.jsx';
 import { useListenPlumber } from '../hook/useListenPlumber.jsx';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 
 /* ── Inline Feather/Lucide Icon Components (Zero-Dependency & Pixel-Crisp) ── */
 const Calendar = ({ size = 18, className = '' }) => (
@@ -289,7 +288,7 @@ export default function CustomerProfile() {
   const dispatch = useDispatch();
   const { OrderId: routeOrderId } = useParams();
   const { handleLogout, handleGetME, handleEditCustomerProfile } = useAuth();
-  const { handleGetOrder } = useOrder();
+  const { handleGetOrder,handleGetPaymentDetail } = useOrder();
 
   // 4-Layer Architecture: Direct Redux Selectors from state.order (Layer 3: State Management)
   const reduxServices = useSelector((state) => state.order?.services || []);
@@ -374,11 +373,14 @@ export default function CustomerProfile() {
   const [settingsSuccess, setSettingsSuccess] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const { showToast: triggerToast } = useToast();
 
   const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
+    triggerToast({
+      type: type === 'error' ? 'error' : 'success',
+      message,
+      duration: 4000,
+    });
   };
 
   
@@ -459,6 +461,41 @@ export default function CustomerProfile() {
       ? reduxOrders.map(formatRealOrder).filter(Boolean)
       : [];
   }, [reduxOrders]);
+
+  // Payment status map dynamically fetched via handleGetPaymentDetail()
+  const [paymentStatusMap, setPaymentStatusMap] = useState({});
+
+  useEffect(() => {
+    if (Array.isArray(reduxOrders) && reduxOrders.length > 0 && handleGetPaymentDetail) {
+      reduxOrders.forEach(async (order) => {
+        const oId = order._id;
+        if (oId) {
+          try {
+            const data = await handleGetPaymentDetail(oId);
+            const status = data?.payment?.status || (data?.status ? data.status : 'pending');
+            setPaymentStatusMap((prev) => ({
+              ...prev,
+              [oId]: status,
+            }));
+          } catch (err) {
+            setPaymentStatusMap((prev) => ({
+              ...prev,
+              [oId]: 'pending',
+            }));
+          }
+        }
+      });
+    }
+  }, [reduxOrders]);
+
+  const isPaymentPending = (b) => {
+    if (!b) return false;
+    const oId = b.rawId || b.id || b._id;
+    const payStatus = paymentStatusMap[oId];
+    if (payStatus === 'paid') return false;
+    if (payStatus === 'pending') return true;
+    return b.status === 'pending' || String(b.rawOrder?.status || '').toLowerCase() === 'pending' || b.rawOrder?.payment?.status === 'pending';
+  };
 
   const filteredBookings = bookingsList.filter((b) => {
     if (bookingFilter === 'active') return b.isActive;
@@ -557,20 +594,6 @@ export default function CustomerProfile() {
       <div className="fixed top-24 right-1/4 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
       <div className="fixed bottom-24 left-10 w-[450px] h-[450px] bg-orange-500/10 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* ── Toast Notification Pill ── */}
-      {toast.show && (
-        <div
-          className={`fixed top-5 right-5 sm:right-8 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] backdrop-blur-xl border animate-in fade-in slide-in-from-top-2 duration-300 ${
-            toast.type === 'error'
-              ? 'bg-rose-950/95 border-rose-500/40 text-rose-300'
-              : 'bg-emerald-950/95 border-emerald-500/40 text-emerald-300'
-          }`}
-        >
-          <span className="text-sm">{toast.type === 'error' ? '⚠️' : '✓'}</span>
-          <span className="text-xs font-bold tracking-tight">{toast.message}</span>
-        </div>
-      )}
-
       {/* ── Main Container (Comfortable spacing below fixed Navbar) ── */}
       <div
         className={`relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pb-16 pt-28 sm:pt-32 md:pt-36 transition-all duration-700 ease-out transform ${
@@ -650,7 +673,12 @@ export default function CustomerProfile() {
               <TabButton
                 icon={<Calendar size={18} />}
                 label="My Bookings & Services"
-                badge={activeCount > 0 ? `${activeCount} Live` : null}
+                badge={activeCount > 0 ? `${activeCount} LIVE` : null}
+                badgeAction={
+                  (activeOrders[0]?.rawId || activeOrder?.rawId)
+                    ? () => navigate(`/customer/customer_tracking/${activeOrders[0]?.rawId || activeOrder?.rawId}`)
+                    : null
+                }
                 isActive={activeTab === 'bookings'}
                 onClick={() => setActiveTab('bookings')}
               />
@@ -861,9 +889,19 @@ export default function CustomerProfile() {
                       <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 border-white/10 pt-4 md:pt-0 shrink-0">
                         <div className="text-left md:text-right">
                           <p className="text-xs text-white/50 uppercase font-semibold">Total Amount</p>
-                          <p className="text-2xl sm:text-3xl font-black text-white">₹{activeOrder.price}</p>
+                          <p className="text-2xl sm:text-3xl font-black text-white">₹{activeOrder.price>0?activeOrder.price:"As Per Work"}</p>
                         </div>
                         <div className="flex items-center gap-2 mt-2">
+                          {isPaymentPending(activeOrder) && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/customer/payment/${activeOrder.rawId}`)}
+                              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.45)] transition-all cursor-pointer hover:scale-105 active:scale-95 animate-pulse flex items-center gap-1.5"
+                            >
+                              <span>💳</span>
+                              <span>Please payment this</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() =>
@@ -995,6 +1033,16 @@ export default function CustomerProfile() {
                                   {b.statusLabel}
                                 </span>
 
+                                {isPaymentPending(b) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/customer/payment/${b.rawId}`)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all cursor-pointer shadow-sm animate-pulse"
+                                  >
+                                    <span>💳 Please payment this →</span>
+                                  </button>
+                                )}
+
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/5 text-white/70 border border-white/10">
                                   <ShieldCheck size={12} className="text-cyan-400" />
                                   <span>{b.warranty}</span>
@@ -1013,11 +1061,22 @@ export default function CustomerProfile() {
                             </div>
 
                             <div className="flex items-center gap-2 mt-2">
+                              {isPaymentPending(b) && (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/customer/payment/${b.rawId}`)}
+                                  className="inline-flex items-center gap-1.5 text-xs text-slate-950 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 font-black px-3.5 py-1.5 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.45)] cursor-pointer hover:scale-105 active:scale-95 animate-pulse"
+                                >
+                                  <span>💳</span>
+                                  <span>Please payment this</span>
+                                </button>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() =>
-                                  alert(
-                                    `Downloading verified tax invoice PDF for ${b.id} issued to ${userData.FullName || 'Customer'} with FRRF 90-Day Guarantee.`
+                                  showToast(
+                                    `Downloading verified tax invoice PDF for ${b.id} with FRRF 90-Day Guarantee.`
                                   )
                                 }
                                 className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors cursor-pointer"
@@ -1523,10 +1582,9 @@ export default function CustomerProfile() {
 }
 
 /* ── Reusable Tab Button Component ── */
-function TabButton({ icon, label, badge, isActive, onClick }) {
+function TabButton({ icon, label, badge, badgeAction, isActive, onClick }) {
   return (
-    <button
-      type="button"
+    <div
       onClick={onClick}
       className={`flex items-center justify-between px-4 py-3 rounded-xl text-left font-semibold text-sm transition-all duration-200 w-full cursor-pointer group ${
         isActive
@@ -1534,23 +1592,44 @@ function TabButton({ icon, label, badge, isActive, onClick }) {
           : 'text-white/70 hover:bg-white/6 hover:text-white'
       }`}
     >
-      <div className="flex items-center gap-3">
-        <span className={isActive ? 'text-[#070E1A]' : 'text-cyan-400 group-hover:text-white transition-colors'}>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className={isActive ? 'text-[#070E1A]' : 'text-cyan-400 group-hover:text-white transition-colors shrink-0'}>
           {icon}
         </span>
-        <span>{label}</span>
+        <span className="truncate">{label}</span>
       </div>
+
       {badge && (
-        <span
-          className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-            isActive
-              ? 'bg-[#0A1628] text-cyan-300'
-              : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-          }`}
-        >
-          {badge}
-        </span>
+        badgeAction ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              badgeAction();
+            }}
+            title="Open Live GPS Tracking for active order"
+            className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0 ${
+              isActive
+                ? 'bg-[#070E1A] hover:bg-[#0c1e38] text-cyan-300 border border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)] animate-pulse'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>{badge}</span>
+            <span className="text-[10px]">🚐</span>
+          </button>
+        ) : (
+          <span
+            className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+              isActive
+                ? 'bg-[#0A1628] text-cyan-300'
+                : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+            }`}
+          >
+            {badge}
+          </span>
+        )
       )}
-    </button>
+    </div>
   );
 }

@@ -11,6 +11,7 @@ import { getIo } from "../socket/server.socket.js";
 import PaymentModel from "../models/Payment.model.js"
 import { CreateOrder } from "../service/Payment.service.js";
 import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils.js"
+import { uploadFile } from "../service/storage.service.js";
 
 export const RegisterTechnicianController = async (req, res) => {
   try {
@@ -169,9 +170,36 @@ export const acceptJobController = async (req, res) => {
     try {
         const { OrderId, technicianId } = req.body;
 
-        // 1. डेटाबेस में ऑर्डर अपडेट करो (Pending से Accepted)
+        // 1. Check if the order is already accepted by another technician
+        const orderExists = await OrderModel.findById(OrderId);
+        if (!orderExists) {
+            return res.status(404).json({ success: false, message: "Order not found!" });
+        }
+
+        if (orderExists.status !== "Pending" && orderExists.technicianId) {
+            // Already taken! Broadcast so it is removed from all other technicians
+            try {
+                const io = await getIo();
+                io.emit('job-taken', {
+                    orderId: OrderId.toString(),
+                    technicianId: orderExists.technicianId.toString(),
+                    message: "Job already taken by another technician"
+                });
+            } catch (sockErr) {
+                console.warn("Socket broadcast note:", sockErr?.message);
+            }
+
+            return res.status(400).json({
+                success: false,
+                alreadyAccepted: true,
+                message: "Job already taken by another technician!",
+                order: orderExists
+            });
+        }
+
+        // 2. Atomically update only if status is "Pending" (prevents race conditions)
         const updatedOrder = await OrderModel.findOneAndUpdate(
-            { _id: OrderId, status: { $in: ["Pending", "Accepted"] } }, 
+            { _id: OrderId, status: "Pending" }, 
             { 
                 status: "Accepted", 
                 technicianId: technicianId 
@@ -180,7 +208,22 @@ export const acceptJobController = async (req, res) => {
         ).populate('technicianId').populate('userId');
 
         if (!updatedOrder) {
-            return res.status(400).json({ success: false, message: "Job already taken or not found!" });
+            try {
+                const io = await getIo();
+                io.emit('job-taken', {
+                    orderId: OrderId.toString(),
+                    technicianId: technicianId ? technicianId.toString() : null,
+                    message: "Job already taken by another technician"
+                });
+            } catch (sockErr) {
+                console.warn("Socket broadcast note:", sockErr?.message);
+            }
+
+            return res.status(400).json({
+                success: false,
+                alreadyAccepted: true,
+                message: "Job already taken by another technician!"
+            });
         }
 
         // Fetch technician profile to include live location
@@ -207,7 +250,7 @@ export const acceptJobController = async (req, res) => {
             status: "Accepted",
         };
 
-        // 2. 🚀 Customer को Socket से बता दो कि "तुम्हें प्लंबर मिल गया है!"
+        // 3. 🚀 Customer को Socket से बताओ & ALL OTHER TECHNICIANS से Job हटाओ!
         const io = await getIo();
         if (updatedOrder.userId) {
             const uId = updatedOrder.userId._id
@@ -218,6 +261,17 @@ export const acceptJobController = async (req, res) => {
         io.to(OrderId.toString()).emit('plumber-assigned', payload);
         io.to(OrderId.toString()).emit('receive-status', { status: "Accepted" });
 
+        // 🚀 Broadcast to ALL other technicians so this job vanishes from their screen in real time!
+        io.emit('job-taken', {
+            orderId: OrderId.toString(),
+            technicianId: technicianId ? technicianId.toString() : null,
+            message: "Job already taken by another technician"
+        });
+        io.emit('job-already-accepted', {
+            orderId: OrderId.toString(),
+            technicianId: technicianId ? technicianId.toString() : null
+        });
+
         res.status(200).json({ success: true, message: "Job Accepted!", order: updatedOrder });
     } catch (err) {
         console.error("acceptJobController error:", err);
@@ -225,13 +279,46 @@ export const acceptJobController = async (req, res) => {
     }
 };
 
+
 export const GetTechnicianNotificationsController = async (req, res) => {
     try {
-        // Fetch all pending / active orders available for technicians
-        const orders = await OrderModel.find({ status: { $in: ["Pending", "Accepted"] } })
+        let currentUserId = null;
+        let currentTechProfileId = null;
+        const token = req.cookies?.token;
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, Config.JWT_SECRET);
+                currentUserId = decoded?._id || decoded?.id;
+                if (currentUserId) {
+                    const techProfile = await TechnicianProfileModel.findOne({ userId: currentUserId });
+                    if (techProfile) {
+                        currentTechProfileId = techProfile._id;
+                    }
+                }
+            } catch (e) {
+                // Ignore token error for public notifications fetch
+            }
+        }
+
+        // Available for technicians:
+        // 1. Pending orders (open for any technician to accept)
+        // 2. Orders accepted by THIS technician
+        // Orders taken by OTHER technicians are NOT returned!
+        let orderQuery = { status: "Pending" };
+        if (currentTechProfileId || currentUserId) {
+            const allowedTechIds = [currentTechProfileId, currentUserId].filter(Boolean);
+            orderQuery = {
+                $or: [
+                    { status: "Pending" },
+                    { technicianId: { $in: allowedTechIds } }
+                ]
+            };
+        }
+
+        const orders = await OrderModel.find(orderQuery)
             .populate("userId")
             .sort({ createdAt: -1 })
-            .limit(25);
+            .limit(50);
 
         const notifications = orders.map((order) => {
             const user = order.userId || {};
@@ -260,7 +347,7 @@ export const GetTechnicianNotificationsController = async (req, res) => {
                 longitude: Number(coords[0]) || 72.8777,
                 distance: "Within 25 Km Zone",
                 estimatedPrice: order.total_Amount?.amount ? `₹${order.total_Amount.amount}` : "₹500",
-                amount: order.total_Amount?.amount || 500,
+                amount: order.total_Amount?.amount ,
                 status: order.status,
                 isAccepted: order.status === "Accepted" || order.status === "On-the-way" || order.status === "Working" || order.status === "Completed" || !!order.technicianId,
                 technicianId: order.technicianId,
@@ -282,6 +369,75 @@ export const GetTechnicianNotificationsController = async (req, res) => {
     }
 };
 
+
+export const VerifyPlumberWorkController=async(req,res)=>{
+   try {
+      const {PaymentWorkDetail,OrderId,amount}=req.body
+    
+    
+   
+           const images = await Promise.all(
+               req.files.map(async (file) => {
+                   
+                 return await uploadFile({
+                       buffer: file.buffer,
+                       fileName: file.originalname
+                   });
+                   
+                   // डेटाबेस में सिर्फ URL सेव करें (या आपकी ज़रूरत के हिसाब से)
+                   
+               }));
+           
+        // नई इमेजेज़ डेटाबेस में सेट कर दें
+       
+   console.log(images,PaymentWorkDetail);
+       const order=await OrderModel.findById(OrderId)
+    if(!order){
+        res.status(404).json({
+          message:"Order in Not Existed"
+        })
+      }  
+         if(order.status !=="Accepted" || order.technicianId === null){
+      return res.status(401).json({
+        message:"Order is not Accepted By any Technician",
+        order
+      })
+    }
+      
+    if(order.status ==="Completed" ){
+      return res.status(401).json({
+        message:"Order is all ready Completed",
+        order
+      })
+    }
+ 
+      ;
+    
+    
+      const updatedOrder=await OrderModel.findByIdAndUpdate(OrderId,
+      {$set:{status:"Completed",
+         PaymentWorkDetail:PaymentWorkDetail,
+      verifiedIssueImageUrl:images,
+      total_Amount:{
+        amount:amount
+      }}},
+     {returnDocument:'after' })
+      
+       res.status(200).json({
+        message:"Order is verified successfully",
+        updatedOrder
+       })
+   } catch (error) {
+    console.log(error.message,"VerifyPlumberWorkController()")
+    res.status(500).json({
+      message:"Internal Server Error",
+      err:error
+    })
+   }
+    
+   
+}
+
 export const GetTechnicianController=async(req,res)=>{
      const userid = req.user?._id || req.user?.id;
      const TechnicianData=await TechnicianProfileModel.findOne({userId:userid}).populate('userId')
@@ -292,155 +448,42 @@ export const GetTechnicianController=async(req,res)=>{
      })
 }
 
-
-export const CreateOrderPaymentController = async (req, res) => {
+export async function GetIdController(req, res) {
   try {
-    const { accordingToWork, amount, PaymentType, currency, OrderId,  } = req.body;
+    const { OrderId } = req.params;
 
-    const targetOrderId = OrderId ;
-    const workDetails = accordingToWork || "General plumbing repair & maintenance";
-    const paymentMode = (PaymentType || payment_type || "online").toLowerCase();
-    const curr = currency || "INR";
-    const totalAmountNum = Number(amount) || 500;
-
-    let razorpayOrder = null;
-    if (paymentMode === "online") {
-      try {
-        razorpayOrder = await CreateOrder({ amount: totalAmountNum, currency: curr });
-      } catch (rzpErr) {
-        console.warn("Razorpay create order note, fallback ID generated:", rzpErr.message);
-        razorpayOrder = {
-          id: "order_FRRF_" + Date.now(),
-          amount: totalAmountNum * 100,
-          currency: curr,
-        };
-      }
-    } else {
-      razorpayOrder = {
-        id: "cash_" + Date.now(),
-        amount: totalAmountNum * 100,
-        currency: curr,
-      };
-    }
-
-    const newPayment = await PaymentModel.create({
-      status: paymentMode === "cash" ? "paid" : "pending",
-      totalAmount: {
-        amount: totalAmountNum,
-        currency: curr,
-      },
-      razorpay: {
-        orderId: razorpayOrder?.id || "",
-      },
-      user: req.user?._id || req.user?.id || null,
-      accordingToWork: workDetails,
-      PaymentType: paymentMode === "cash" ? "cash" : "online",
-      Order_details: targetOrderId,
-    });
-
-    if (paymentMode === "cash" && targetOrderId) {
-      await OrderModel.findByIdAndUpdate(targetOrderId, { status: "Completed" });
-      try {
-        const io = await getIo();
-        io.to(targetOrderId.toString()).emit("receive-status", { status: "Completed" });
-        io.to(targetOrderId.toString()).emit("order-completed", { orderId: targetOrderId, paymentId: newPayment._id });
-      } catch (sErr) {
-        console.warn("Socket notification note:", sErr.message);
-      }
-    }
-
-    const PaymentData = await PaymentModel.findById(newPayment._id)
-      .populate("Order_details")
-      .populate("user");
-    const updated_payment=await OrderModel.findByIdAndUpdate(OrderId,{
-      $set:{"total_Amount.amount":totalAmountNum}},
-    { new: true })
-
-    return res.status(200).json({
-      success: true,
-      message: "Payment Order Created Successfully",
-      PaymentData,
-      order: razorpayOrder,
-    });
-  } catch (error) {
-    console.error("CreateOrderPaymentController error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
-  }
-};
-
-export const VerifyOrderController = async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId, orderId } = req.body;
-
-    let payment = null;
-    if (razorpay_order_id) {
-      payment = await PaymentModel.findOne({ "razorpay.orderId": razorpay_order_id }).populate("Order_details");
-    }
-    if (!payment && (OrderId || orderId)) {
-      payment = await PaymentModel.findOne({ Order_details: OrderId || orderId }).sort({ createdAt: -1 }).populate("Order_details");
-    }
-
-    if (!payment) {
-      return res.status(400).json({
-        success: false,
-        message: "Payment record not found",
-      });
-    }
-
-    if (razorpay_signature && Config.RAZORPAY_KEY_SECRET) {
-      try {
-        const isValidate = validatePaymentVerification(
-          { order_id: razorpay_order_id, payment_id: razorpay_payment_id },
-          razorpay_signature,
-          Config.RAZORPAY_KEY_SECRET
-        );
-        if (!isValidate) {
-          payment.status = "failed";
-          await payment.save();
-          return res.status(400).json({
-            success: false,
-            message: "Payment verification signature failed",
-          });
+    const Order = await OrderModel.findById(OrderId).populate("userId").populate({
+        path: "technicianId",
+        populate: {
+            path: "userId" // यह Technician Profile के अंदर मौजूद userId है
         }
-      } catch (sigErr) {
-        console.warn("Signature verification note:", sigErr.message);
-      }
+    });
+
+    if (!Order) {
+      return res.status(404).json({ message: "Order not found" });
     }
 
-    payment.razorpay.paymentId = razorpay_payment_id || ("pay_" + Date.now());
-    payment.razorpay.signature = razorpay_signature || "";
-    payment.status = "paid";
-    await payment.save();
-
-    const targetOrderId = payment.Order_details?._id || payment.Order_details || OrderId || orderId;
-    let updatedOrder = null;
-    if (targetOrderId) {
-      updatedOrder = await OrderModel.findByIdAndUpdate(
-        targetOrderId,
-        { status: "Completed" },
-        { new: true }
-      ).populate("technicianId").populate("userId");
-
-      try {
-        const io = await getIo();
-        io.to(targetOrderId.toString()).emit("receive-status", { status: "Completed" });
-        io.to(targetOrderId.toString()).emit("order-completed", { orderId: targetOrderId, paymentId: payment._id });
-      } catch (sErr) {
-        console.warn("Socket notification note:", sErr.message);
-      }
+    let technicianProfile = null;
+    if (Order.technicianId) {
+      const techUserId = Order.technicianId._id || Order.technicianId;
+      technicianProfile = await TechnicianProfileModel.findOne({ userId: techUserId });
     }
 
-    return res.status(200).json({
-      message: "Order is Verified Successfully",
-      success: true,
-      payment,
-      order: updatedOrder,
+    res.status(200).json({
+      message: "Get Order Successfully",
+      order: Order,
+      technicianProfile,
+      OrderId: Order._id,
     });
   } catch (error) {
-    console.error("Error In VerifyOrderController:", error);
-    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+    console.log("Error In GetIdController", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error,
+    });
   }
-};
+}
+
 
 export const GetPaymentDetailController = async (req, res) => {
   try {
@@ -472,16 +515,14 @@ export const GetPaymentDetailController = async (req, res) => {
     }
 
     return res.status(200).json({
-      success: true,
+      succes: true,
       payment,
-      order: order || payment?.Order_details,
     });
   } catch (error) {
     console.error("GetPaymentDetailController error:", error);
     return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }
 };
-
 // ──────────────────────────────────────────────────────────
 // 1. TECHNICIAN ONLINE & OFFLINE TOGGLE CONTROLLER
 // ──────────────────────────────────────────────────────────

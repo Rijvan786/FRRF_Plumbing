@@ -10,6 +10,7 @@ const orderSlice = createSlice({
     selectedService: null,
     loading: false,
     error: null,
+    paymentDetail: null,
   },
   reducers: {
     setImages: (state, action) => {
@@ -67,6 +68,13 @@ const orderSlice = createSlice({
     clearOrderError: (state) => {
       state.error = null;
     },
+    
+        setPaymentDetail: (state, action) => {
+          state.paymentDetail = action.payload;
+        },
+        clearPaymentDetail: (state) => {
+          state.paymentDetail = null;
+        },
   },
 });
 
@@ -80,6 +88,8 @@ export const {
   setLoading,
   setError,
   clearOrderError,
+  setPaymentDetail,
+  clearPaymentDetail
 } = orderSlice.actions;
 
 export default orderSlice.reducer;

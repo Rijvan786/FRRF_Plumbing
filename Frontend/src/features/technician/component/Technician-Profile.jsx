@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../../auth/hook/useAuth.jsx';
 import { useTechnician } from '../hook/useTechnician.jsx';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 
 /* ── Inline Crisp Icons (Zero-Dependency) ── */
 const Wrench = ({ size = 18, className = '' }) => (
@@ -112,11 +113,14 @@ export default function TechnicianProfile() {
   const [newSkillInput, setNewSkillInput] = useState('');
 
   const [savingSection, setSavingSection] = useState(null); // 'profile' | 'address' | 'skills' | null
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const { showToast: triggerToast } = useToast();
 
   const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
+    triggerToast({
+      type: type === 'error' ? 'error' : 'success',
+      message,
+      duration: 4000,
+    });
   };
 
   // Entrance animation
@@ -525,20 +529,6 @@ export default function TechnicianProfile() {
 
           {/* ================= RIGHT: MAIN CONTENT ================= */}
           <main className="flex-1 w-full bg-[#0A1628]/85 backdrop-blur-2xl border border-white/12 rounded-3xl p-5 sm:p-7 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] min-h-[550px] flex flex-col relative">
-            
-            {/* ── Toast Notification Pill ── */}
-            {toast.show && (
-              <div
-                className={`absolute top-4 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl border animate-in fade-in slide-in-from-top-2 duration-300 ${
-                  toast.type === 'error'
-                    ? 'bg-rose-950/95 border-rose-500/40 text-rose-300'
-                    : 'bg-emerald-950/95 border-emerald-500/40 text-emerald-300'
-                }`}
-              >
-                <span className="text-sm">{toast.type === 'error' ? '⚠️' : '✓'}</span>
-                <span className="text-xs font-bold tracking-tight">{toast.message}</span>
-              </div>
-            )}
 
             {/* ════ TAB 1: PROFILE OVERVIEW ════ */}
             {activeTab === 'overview' && (

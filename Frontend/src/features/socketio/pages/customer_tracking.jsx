@@ -339,19 +339,36 @@ console.log(orderData);
           </div>
         </div>
 
-        {/* Live Status Badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30">
+        {/* Top Header Right: My Bookings & Services + Live Button */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button
+            onClick={() => navigate('/customer/profile')}
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/12 hover:border-cyan-500/40 text-white/90 hover:text-white text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-sm"
+            title="View My Bookings & Services"
+          >
+            <span className="text-cyan-400">📋</span>
+            <span className="hidden xs:inline">My Bookings & Services</span>
+            <span className="xs:hidden">Bookings</span>
+          </button>
+
+          {/* Live Button (Right of My Bookings & Services) */}
+          <button
+            onClick={handleRecenter}
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all cursor-pointer active:scale-95"
+            title="Live GPS Tracking Active - Click to Recenter Plumber"
+          >
             <span
               className={`w-2 h-2 rounded-full ${
                 isTechnicianOnline ? 'bg-emerald-400' : 'bg-white/40'
               } shadow-[0_0_8px_#34d399] animate-pulse shrink-0`}
             />
-            <span className="text-[11px] sm:text-xs font-bold text-emerald-400 tracking-wide uppercase whitespace-nowrap">
-              <span className="hidden xs:inline">{isTechnicianOnline ? 'Plumber Online' : 'Standby'}</span>
-              <span className="xs:hidden">{isTechnicianOnline ? 'Online' : 'Standby'}</span>
+            <span className="text-xs sm:text-sm font-black tracking-wider uppercase whitespace-nowrap">
+              LIVE
             </span>
-          </div>
+            <span className="text-[10px] text-emerald-400/80 font-bold hidden md:inline">
+              • {isTechnicianOnline ? 'Plumber Online' : 'Standby'}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -573,9 +590,19 @@ console.log(orderData);
 
             {/* Service & Booking Summary Card */}
             <div className="bg-[#0A1628]/85 backdrop-blur-2xl border border-white/12 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
-              <h3 className="font-bold text-xs sm:text-sm uppercase tracking-wider text-white/60 mb-2 sm:mb-3">
-                Service Order Summary
-              </h3>
+              <div className="flex items-center justify-between gap-3 mb-2 sm:mb-3">
+                <h3 className="font-bold text-xs sm:text-sm uppercase tracking-wider text-white/60">
+                  My Bookings & Services
+                </h3>
+                <button
+                  onClick={handleRecenter}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-sm"
+                  title="Recenter Map on Live Location"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]" />
+                  <span>LIVE</span>
+                </button>
+              </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-white/8">
                 <div>
                   <h4 className="font-black text-sm sm:text-base md:text-lg text-white">

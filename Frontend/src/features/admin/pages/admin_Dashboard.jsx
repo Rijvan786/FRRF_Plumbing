@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { usepulmberService } from "../hook/useplumberservice.jsx";
 import CreateService from "../components/createService.jsx";
 import { useAuth } from "../../auth/hook/useAuth.jsx";
+import { useToast } from "../../auth/component/ToastPopup.jsx";
 
 /* ── Inline SVG Icons ── */
 const LogOutIcon = ({ className = "w-4 h-4" }) => (
@@ -319,7 +320,7 @@ export default function AdminDashboard() {
   const [editImageFiles, setEditImageFiles] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [notificationToast, setNotificationToast] = useState(null);
+  const { showToast: triggerToast } = useToast();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const { handleLogout } = useAuth();
@@ -432,8 +433,11 @@ export default function AdminDashboard() {
   }, []);
 
   const showToast = (msg, type = "success") => {
-    setNotificationToast({ msg, type });
-    setTimeout(() => setNotificationToast(null), 3500);
+    triggerToast({
+      type: type === "error" ? "error" : "success",
+      message: msg,
+      duration: 3500,
+    });
   };
 
   const onLogout = async () => {
@@ -558,7 +562,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#070E1A]/97 via-[#0A1628]/88 to-[#0A1628]/55 text-white font-['Inter',sans-serif] relative p-3 sm:p-6 lg:p-8 overflow-x-hidden selection:bg-orange-500 selection:text-white">
       {/* ── Home Page Signature Hero Background Overlay ── */}
-      <div
+      < div
         className="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none opacity-25"
         style={{ backgroundImage: `url('/images/hero-bg.png')` }}
       />
@@ -567,22 +571,6 @@ export default function AdminDashboard() {
       {/* Ambient glowing highlights matching Home page */}
       <div className="fixed top-0 left-1/3 w-72 sm:w-96 h-72 sm:h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 right-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Toast Notification */}
-      {notificationToast && (
-        <div
-          className={`fixed top-4 sm:top-6 right-4 sm:right-6 left-4 sm:left-auto z-50 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-2xl flex items-center justify-between sm:justify-start gap-3 transition-all animate-bounce text-xs sm:text-sm font-semibold ${
-            notificationToast.type === "error"
-              ? "bg-rose-500/20 border-rose-500/30 text-rose-300"
-              : "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <span>{notificationToast.type === "error" ? "⚠️" : "✅"}</span>
-            <span>{notificationToast.msg}</span>
-          </div>
-        </div>
-      )}
 
       {/* ══════════════════════════════════════════════════════════════
           TOP HEADER BAR (Mobile-Responsive & Executive Theme)
@@ -636,7 +624,7 @@ export default function AdminDashboard() {
 
           {/* Trigger Box for: "Show Pop up of New Today register Technician" */}
           <div className="relative group flex-1 sm:flex-initial">
-            <button
+            <button  
               type="button"
               onClick={() => setShowTechPopup(true)}
               className="w-full sm:w-auto relative flex items-center justify-center gap-2 bg-[#091427] hover:bg-[#0E1E38] border border-white/15 hover:border-cyan-400/80 rounded-xl px-3 sm:px-3.5 py-2 cursor-pointer transition-all duration-200 shadow-[0_4px_20px_rgba(0,0,0,0.5)] group-hover:scale-105 active:scale-95"
@@ -834,7 +822,6 @@ export default function AdminDashboard() {
                           e.target.src = "/images/leakage.png";
                         }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0B1528] via-[#0B1528]/40 to-transparent" />
 
                       {/* Top left category badge */}
                       <div className="absolute top-2.5 left-2.5">
@@ -881,8 +868,8 @@ export default function AdminDashboard() {
                             Fixed Price
                           </div>
                           <div className="font-['Plus_Jakarta_Sans',sans-serif] font-black text-lg sm:text-xl text-orange-500 leading-tight">
-                            {srv.currencySymbol || "₹"}
-                            {srv.price}
+                            {srv.price>0?srv.currencySymbol || "₹":null}
+                            {srv.price||"As per Work"}
                           </div>
                           <div className="text-white/40 text-[10px] sm:text-[11px] font-medium mt-0.5">
                             ⚡ ~{srv.estimatedMinutes} mins{" "}

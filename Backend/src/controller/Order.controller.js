@@ -4,7 +4,10 @@ import { uploadFile } from "../service/storage.service.js";
 import { RegisterController } from "../controller/auth.controller.js";
 import TechnicianProfileModel from "../models/Technicianprofile.model.js";
 import { getIo } from "../socket/server.socket.js";
-
+import { CreateOrder } from "../service/Payment.service.js";
+import PaymentModel from "../models/Payment.model.js";
+import mongoose from "mongoose"
+import { Config } from "../config/config.js";
 export async function CreateOrderController(req, res) {
   try {  
     const {
@@ -28,8 +31,16 @@ export async function CreateOrderController(req, res) {
         message: "Service is not available",
       });
     }
+    console.log(service_Data.category);
+    let total_Amount
+    if(service_Data.category === 'Full Setup'){
+        total_Amount=service_Data.visitCharge
+    }
+   else{
+     total_Amount=service_Data.price.amount
+   }
 
-   
+    
 
     const Images = req.files
       ? await Promise.all(
@@ -73,7 +84,7 @@ export async function CreateOrderController(req, res) {
         serviceName: service_Data.serviceName,
         category: service_Data.category,
         price: {
-          amount: service_Data.price.amount,
+          amount: total_Amount,
           currency: service_Data.price.currency,
         },
         serviceImg: service_Data.serviceImg,
@@ -82,7 +93,7 @@ export async function CreateOrderController(req, res) {
       issueImageUrl: Images,
       scheduleDate: scheduleDate || new Date(),
       total_Amount:{
-        amount:  service_Data.price.amount ,
+        amount: total_Amount,
         currency: service_Data.price.currency || currency,
       },
       address: {
@@ -215,3 +226,211 @@ export async function GetIdController(req, res) {
     });
   }
 }
+
+export const CreateOrderPaymentController = async (req, res) => {
+  try {
+    const { accordingToWork, amount, PaymentType, currency, OrderId} = req.body;
+
+    const targetOrderId = OrderId ;
+    const workDetails = accordingToWork || "General plumbing repair & maintenance";
+    const paymentMode = (PaymentType || payment_type || "online").toLowerCase();
+    const curr = currency || "INR";
+    const totalAmountNum = Number(amount) || 500;
+
+    let razorpayOrder = null;
+    const order=await OrderModel.findById(OrderId)
+    if(!order){
+      return res.status(404).json({
+        message:"OrderIs not found"
+      })
+    }
+    
+    if(order.technicianId==null){
+            return res.status(404).json({
+        message:"Order is not accepted By any technician"
+      })
+    }
+  
+    
+   
+    if(order.status!=="Completed"){
+      return res.status(404).json({
+        message:"Order is not completed By any technician"
+      })
+    }
+   
+    if (paymentMode === "online") {
+      try {
+        razorpayOrder = await CreateOrder({ amount: totalAmountNum, currency: curr });
+      } catch (rzpErr) {
+        console.warn("Razorpay create order note, fallback ID generated:", rzpErr.message);
+        razorpayOrder = {
+          id: "order_FRRF_" + Date.now(),
+          amount: totalAmountNum * 100,
+          currency: curr,
+        };
+      }
+    } else {
+      razorpayOrder = {
+        id: "cash_" + Date.now(),
+        amount: totalAmountNum * 100,
+        currency: curr,
+      };
+    }
+
+    const newPayment = await PaymentModel.create({
+      status: paymentMode === "cash" ? "paid" : "pending",
+      totalAmount: {
+        amount: totalAmountNum,
+        currency: curr,
+      },
+      razorpay: {
+        orderId: razorpayOrder?.id || "",
+      },
+      user: req.user?._id || req.user?.id || null,
+      accordingToWork: workDetails,
+      PaymentType: paymentMode === "cash" ? "cash" : "online",
+      Order_details: targetOrderId,
+    });
+
+    if (paymentMode === "cash" && targetOrderId) {
+      try {
+        const io = await getIo();
+        io.to(targetOrderId.toString()).emit("receive-status", { status: "Completed" });
+        io.to(targetOrderId.toString()).emit("order-completed", { orderId: targetOrderId, paymentId: newPayment._id });
+      } catch (sErr) {
+        console.warn("Socket notification note:", sErr.message);
+      }
+    }
+
+    const PaymentData = await PaymentModel.findById(newPayment._id)
+      .populate("Order_details")
+      .populate("user");
+    const updated_payment=await OrderModel.findByIdAndUpdate(OrderId,{
+      $set:{"total_Amount.amount":totalAmountNum}},
+    { returnDocument:'after'})
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment Order Created Successfully",
+      PaymentData,
+      order: razorpayOrder,
+    });
+  } catch (error) {
+    console.error("CreateOrderPaymentController error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};
+
+export const VerifyOrderController = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, OrderId, orderId } = req.body;
+
+    let payment = null;
+    if (razorpay_order_id) {
+      payment = await PaymentModel.findOne({ "razorpay.orderId": razorpay_order_id }).populate("Order_details");
+    }
+    if (!payment && (OrderId || orderId)) {
+      payment = await PaymentModel.findOne({ Order_details: OrderId || orderId }).sort({ createdAt: -1 }).populate("Order_details");
+    }
+
+    if (!payment) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment record not found",
+      });
+    }
+
+    if (razorpay_signature && Config.RAZORPAY_KEY_SECRET) {
+      try {
+        const isValidate = validatePaymentVerification(
+          { order_id: razorpay_order_id, payment_id: razorpay_payment_id },
+          razorpay_signature,
+          Config.RAZORPAY_KEY_SECRET
+        );
+        if (!isValidate) {
+          payment.status = "failed";
+          await payment.save();
+          return res.status(400).json({
+            success: false,
+            message: "Payment verification signature failed",
+          });
+        }
+      } catch (sigErr) {
+        console.warn("Signature verification note:", sigErr.message);
+      }
+    }
+
+    payment.razorpay.paymentId = razorpay_payment_id || ("pay_" + Date.now());
+    payment.razorpay.signature = razorpay_signature || "";
+    payment.status = "paid";
+    await payment.save();
+
+    const targetOrderId = payment.Order_details?._id || payment.Order_details || OrderId || orderId;
+    let updatedOrder = null;
+    if (targetOrderId) {
+      updatedOrder = await OrderModel.findByIdAndUpdate(
+        targetOrderId,
+        { status: "Completed" },
+        {returnDocument:'after'}
+      ).populate("technicianId").populate("userId");
+
+      try {
+        const io = await getIo();
+        io.to(targetOrderId.toString()).emit("receive-status", { status: "Completed" });
+        io.to(targetOrderId.toString()).emit("order-completed", { orderId: targetOrderId, paymentId: payment._id });
+      } catch (sErr) {
+        console.warn("Socket notification note:", sErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      message: "Order is Verified Successfully",
+      success: true,
+      payment,
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Error In VerifyOrderController:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};
+
+export const GetPaymentDetailController = async (req, res) => {
+  try {
+    const { OrderId } = req.params;
+
+    let payment = null;
+    if (mongoose.isValidObjectId(OrderId)) {
+      payment = await PaymentModel.findOne({
+        $or: [{ Order_details: OrderId }, { _id: OrderId }],
+      }).sort({ createdAt: -1 }).populate({
+        path: "Order_details",
+        populate: [{ path: "userId" }, { path: "technicianId" }],
+      }).populate("user");
+    }
+
+    if (!payment) {
+      payment = await PaymentModel.findOne({ "razorpay.orderId": OrderId })
+        .populate({
+          path: "Order_details",
+          populate: [{ path: "userId" }, { path: "technicianId" }],
+        }).populate("user");
+    }
+
+    let order = null;
+    if (mongoose.isValidObjectId(OrderId)) {
+      order = await OrderModel.findById(OrderId)
+        .populate("userId")
+        .populate("technicianId");
+    }
+
+    return res.status(200).json({
+      success: true,
+      payment,
+    });
+  } catch (error) {
+    console.error("GetPaymentDetailController error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};

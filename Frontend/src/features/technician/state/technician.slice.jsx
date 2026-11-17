@@ -15,6 +15,8 @@ const TechnicianSlice = createSlice({
     isTrackingActive: false,
     notifications: [],
     paymentDetail: null,
+    currentOrder: null,
+    verifiedWork: null,
   },
   reducers: {
     setTechnician: (state, action) => {
@@ -85,11 +87,17 @@ const TechnicianSlice = createSlice({
     clearTechError: (state) => {
       state.error = null;
     },
-    setPaymentDetail: (state, action) => {
-      state.paymentDetail = action.payload;
+    setPaymentDetail:(state,action)=>{
+      state.paymentDetail=action.payload
     },
     clearPaymentDetail: (state) => {
       state.paymentDetail = null;
+    },
+    setCurrentOrder: (state, action) => {
+      state.currentOrder = action.payload;
+    },
+    setVerifiedWork: (state, action) => {
+      state.verifiedWork = action.payload;
     },
   },
 });
@@ -112,6 +120,8 @@ export const {
   clearTechError,
   setPaymentDetail,
   clearPaymentDetail,
+  setCurrentOrder,
+  setVerifiedWork,
 } = TechnicianSlice.actions;
 
 export default TechnicianSlice.reducer;
