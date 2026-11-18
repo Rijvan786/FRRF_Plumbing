@@ -1,7 +1,7 @@
 
 import {useDispatch}  from "react-redux"
 import { setError, setLoading, setUser } from "../state/auth.slice"
-import { ForgetMail, ForgetPassword, GetMe, Login, Logout, Register, ResendMail, EditCustomerProfile } from "../service/auth.api.jsx"
+import { ForgetMail, ForgetPassword, GetMe, Login, Logout, Register, ResendMail, EditCustomerProfile, UpdateGoogleUserId } from "../service/auth.api.jsx"
 import { useEffect } from "react"
 
 export  function useAuth(){
@@ -54,6 +54,15 @@ const handleLogin=async({FullName,email,password,OrderId,AddressId})=>{
 finally{
     dispatch(setLoading(false))
 }
+}
+
+const handleUpdateUserId=async({OrderId})=>{
+    try {
+        const data=await UpdateGoogleUserId({OrderId})
+        return data
+    } catch (error) {
+        console.log("Error in handleUpdateUserId",error);
+    }
 }
 
 
@@ -176,6 +185,7 @@ const handleEditCustomerProfile = async (payload) => {
 return   {
            handleRegister,
           handleLogin,
+          handleUpdateUserId,
           handleResendMail,
           handleForgetMail,
           handleForgetPassword,

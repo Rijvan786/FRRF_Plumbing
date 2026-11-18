@@ -66,5 +66,5 @@ OrderSchema.index({ userId: 1, createdAt: -1 }, { partialFilterExpression: { isA
 
 
 
-const OrderModel=mongoose.model("order",OrderSchema)
+const   OrderModel=mongoose.model("order",OrderSchema)
 export default OrderModel

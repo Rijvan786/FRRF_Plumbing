@@ -37,7 +37,7 @@ passport.use(new GoogleStrategy({
   callbackURL: "https://frpf-plumbing.onrender.com/api/auth/google/callback",
 },
 (_, __, profile, done) => {
-  return done(null, profile);
+  return done(null, profile); 
 }
 ));
 

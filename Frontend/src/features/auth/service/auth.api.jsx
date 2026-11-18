@@ -27,7 +27,10 @@ export async function Login({FullName,email,  password,OrderId,AddressId}){
     return response.data
 }
 
-
+export async function UpdateGoogleUserId({OrderId}){
+    const response=await api.post(`/UpdateGoogleCallbackUserId/${OrderId}`)
+    return response.data
+}
 export async function ResendMail({email}){
     
     const response=await api.post("/resend-verification",{email})

@@ -88,7 +88,7 @@ export default function   Register() {
   const [visible, setVisible]     = useState(false);
   const [errorMsg, setErrorMsg]   = useState('');
   const authError = useSelector((state) => state.auth?.Error);
-  const { handleRegister } = useAuth();
+  const { handleRegister,handleUpdateUserId } = useAuth();
   const [searchParams] = useSearchParams();
 
     // 🚀 3. 'get' मेथड का इस्तेमाल करके orderId निकालें
@@ -398,9 +398,10 @@ export default function   Register() {
             </span>
           </div>
 
-          {/* Google Registration Button */}
-          <a
-            href="https://frpf-plumbing.onrender.com/api/auth/google"
+          {/*Condition showing if OrderId not params Google Registration Button */}
+         {OrderId?null: 
+         <a  
+            href={`https://frpf-plumbing.onrender.com/api/auth/google/${OrderId}`}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm bg-white/6 hover:bg-white/10 border border-white/15 text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-white/30 shadow-md no-underline"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -422,7 +423,7 @@ export default function   Register() {
               />
             </svg>
             Continue with Google
-          </a>
+          </a>}
 
           <p className="mt-6 text-center text-white/40 text-sm">
             Already have an account?{' '}

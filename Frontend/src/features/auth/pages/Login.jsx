@@ -66,7 +66,7 @@ import { useOrder } from '../../order/hook/useOrder.jsx';
     // 🚀 3. 'get' मेथड का इस्तेमाल करके orderId निकालें
     const OrderId = searchParams.get('OrderId') 
 
-    const { handleLogin } = useAuth();
+    const { handleLogin,handleUpdateUserId } = useAuth();
 
     const { showToast } = useToast();
     
@@ -320,10 +320,11 @@ import { useOrder } from '../../order/hook/useOrder.jsx';
             </div>
 
             {/* Google Login Button */}
-            <a
-              href="https://frpf-plumbing.onrender.com/api/auth/google"
+            {OrderId?null: <a
+          
+              href={`https://frpf-plumbing.onrender.com/api/auth/google`}
               className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm bg-white/6 hover:bg-white/10 border border-white/15 text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-white/30 shadow-md no-underline"
-            >
+            > 
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -343,7 +344,7 @@ import { useOrder } from '../../order/hook/useOrder.jsx';
                 />
               </svg>
               Continue with Google
-            </a>
+            </a>}
 
             {/* Resend mail link */}
             <p className="mt-4 text-center text-white/35 text-xs">

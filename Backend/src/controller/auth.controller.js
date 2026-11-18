@@ -61,7 +61,20 @@ async function SendTokenResponse(user, res, message) {
     })
  }
 }
-
+// Update Order userId, and address userId
+async function UpdateuserId(user,OrderId){
+  if(OrderId){
+     
+    const OrderModelEditUserid=await OrderModel.findOneAndUpdate({ 
+      _id:OrderId
+    },{ 
+            $set: { 
+                userId: user._id, 
+                "address.userId": user._id // 👈 Dot notation: सिर्फ address के अंदर का userId बदलेगा, बाकी एड्रेस सेफ रहेगा
+            } 
+        }, // 2nd Argument: Update data
+        { returnDocument:'after' })
+}}
 // ──────────────────────────────────────────────
 //  REGISTER CONTROLLER
 //  Sends role-specific welcome email on sign-up
@@ -158,22 +171,7 @@ console.log(contact);
     
 
     console.log(`✅ Welcome email sent to: ${email} (role: ${role})`);
-if(OrderId){
-     
-    const OrderModelEditUserid=await OrderModel.findOneAndUpdate({ 
-      _id:OrderId
-    },{ 
-            $set: { 
-                userId: user._id, 
-                "address.userId": user._id // 👈 Dot notation: सिर्फ address के अंदर का userId बदलेगा, बाकी एड्रेस सेफ रहेगा
-            } 
-        }, // 2nd Argument: Update data
-        { returnDocument:'after' })
-
-
-   
-
-}
+await UpdateuserId(user,OrderId)
     // ── Respond with token cookie ──
     await SendTokenResponse(
       user,
@@ -617,22 +615,7 @@ export async function LoginController(req, res) {
     // });
 
     // ── Send JSON Response ──
-if(OrderId){
-     
-    const OrderModelEditUserid=await OrderModel.findOneAndUpdate({ 
-      _id:OrderId
-    },{ 
-            $set: { 
-                userId: user._id, 
-                "address.userId": user._id // 👈 Dot notation: सिर्फ address के अंदर का userId बदलेगा, बाकी एड्रेस सेफ रहेगा
-            } 
-        }, // 2nd Argument: Update data
-        { returnDocument:'after' })
-
-
-   
-
-}
+await UpdateuserId(user,OrderId)
     return await SendTokenResponse(
       user,
       res,
@@ -1007,7 +990,7 @@ export async function GoogleCallback(req, res) {
     });
 
     // ── Target redirect URL: https://frpf-plumbing.onrender.com/ ──
-    const redirectUrl = `https://frpf-plumbing.onrender.com/`;
+    const redirectUrl = Config.NODE_ENV==="production"?`https://frpf-plumbing.onrender.com/`:"http://localhost:5173";
 
     // ── Generate & send modern email notification ──
     const emailHtml = generateGoogleAuthEmail({
