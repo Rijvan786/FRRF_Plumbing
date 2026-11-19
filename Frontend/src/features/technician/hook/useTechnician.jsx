@@ -110,8 +110,8 @@ export function useTechnician() {
   const handleAcceptJob = async ({ OrderId, technicianId }) => {
     try {
       dispatch(setTechLoading(true));
-      const result = await AcceptJob({ OrderId, technicianId });
-      return result;
+      const data = await AcceptJob({ OrderId, technicianId });
+      return data;
     } catch (error) {
       console.error("Error in handleAcceptJob in useTechnician:", error);
       const errMsg = error?.response?.data?.message || error?.message || "";

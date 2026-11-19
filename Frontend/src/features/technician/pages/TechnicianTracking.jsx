@@ -23,11 +23,27 @@ export default function TechnicianTracking() {
   const {
     technicianLocation,
     customerLocation,
-    orderStatus,
     distanceKm: trackedDistance,
     orderData,
+    orderStatus
   } = trackState;
+ // Resolved Real Display Details from Database Order
+  const displayService =
+    orderData?.ServiceDetails?.serviceName ||
+    orderData?.issuedDescription ||
+    'Plumbing Service';
 
+  const displayCategory = orderData?.ServiceDetails?.category || 'General Repair';
+  const displayAddress =
+    [orderData?.address?.street, orderData?.address?.city, orderData?.address?.pin_code]
+      .filter(Boolean)
+      .join(', ') || 'Service Address on Record';
+
+  const displayCustomerName =
+    orderData?.userId?.FullName || orderData?.userId?.name || 'Valued Client';
+  const displayCustomerPhone =
+    orderData?.userId?.contact || orderData?.userId?.phone || '';
+ 
   // Resolve active Order ID
   const activeOrderId =
     routeOrderId ||
@@ -40,7 +56,7 @@ export default function TechnicianTracking() {
 
   // Broadcasting State & Location Sender hook
   const [isBroadcasting, setIsBroadcasting] = useState(true);
-  const [showAcceptPopup, setShowAcceptPopup] = useState(true);
+const [showAcceptPopup,setShowAcceptPopup] = useState(true);
 
   // Hook & State for accepting order in database (Mark Read)
   const { handleAcceptJob, handleGetIdS,handleGetTechnician } = useTechnician();
@@ -87,14 +103,18 @@ export default function TechnicianTracking() {
         orderData?.technicianId;
 
    const acceptRes = await handleAcceptJob({ OrderId: activeOrderId, technicianId: techId });
-        
+        console.log(acceptRes);
         if (acceptRes?.order || acceptRes?.data?.order) {
           const updated = acceptRes.order || acceptRes.data.order;
           dispatch(setOrderData(updated));
           dispatch(setOrderStatus(updated.status || 'Accepted'));
         }
-      
-
+         showToast({
+        type: 'info',
+        message: 'Order is Accepted and Now working',
+       duration: 3000,
+      });
+  
       // Re-fetch authoritative fresh data directly from MongoDB
       const freshRes = await handleGetIdS({ OrderId: activeOrderId });
       if (freshRes?.order) {
@@ -105,11 +125,7 @@ export default function TechnicianTracking() {
       dispatch(markNotificationRead(activeOrderId));
       dispatch(markNotificationAccepted(activeOrderId));
       setIsOrderAcceptedInDb(true);
-      showToast({
-        type: 'success',
-        message: 'Order accepted & updated in  successfully!',
-        duration: 3500,
-      });
+
     } catch (err) {
       console.warn('handleMarkReadAndAccept note:', err?.message || err);
       // Attempt fresh sync even if already accepted
@@ -141,16 +157,16 @@ export default function TechnicianTracking() {
   const handleCompleteJobClick = () => {
     const isAccepted = Boolean(
       isOrderAcceptedInDb ||
-      orderData?.status === 'Accepted' ||
-      orderData?.status === 'Working' ||
-      orderData?.status === 'Completed' ||
+      orderData?.status === "Accepted" ||
+      orderData?.status === "Working" ||
+      orderData?.status === "Completed" ||
       (orderData?.technicianId && orderData?.technicianId !== null)
     );
 
     if (!isAccepted && activeOrderId && activeOrderId !== 'LIVE_DEMO_ORDER') {
       showToast({
         type: 'warning',
-        message: 'Order is not accepted! First of all accept the order in DB, then you can complete it.',
+        message: 'Order is not accepted! First of all accept the order, then you can complete it.',
         duration: 4500,
       });
       setShowNotAcceptedModal(true);
@@ -323,7 +339,14 @@ export default function TechnicianTracking() {
     const customerPopupContent = `
       <div style="font-family:'Space Grotesk',sans-serif; color:#ffffff; padding:6px; min-width:180px; max-width:240px;">
         <div style="display:inline-block; background:#10b981; color:#022c22; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">
-          ✓ Order Accepted
+         <span className="bg-emerald-500 text-slate-950 text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
+               ${isOrderAcceptedInDb ? `(
+                  <>
+                    <span>✓</span>
+                    <span>Accepted</span>
+                  </>)`: "Order Pending!"  }
+                  
+                  </span>
         </div>
         <div style="font-size:13px; font-weight:800; color:#f8fafc; margin-bottom:2px;">
           ${displayCustomerName}
@@ -479,23 +502,7 @@ export default function TechnicianTracking() {
     });
   };
 
-  // Resolved Real Display Details from Database Order
-  const displayService =
-    orderData?.ServiceDetails?.serviceName ||
-    orderData?.issuedDescription ||
-    'Plumbing Service';
-
-  const displayCategory = orderData?.ServiceDetails?.category || 'General Repair';
-  const displayAddress =
-    [orderData?.address?.street, orderData?.address?.city, orderData?.address?.pin_code]
-      .filter(Boolean)
-      .join(', ') || 'Service Address on Record';
-
-  const displayCustomerName =
-    orderData?.userId?.FullName || orderData?.userId?.name || 'Valued Client';
-  const displayCustomerPhone =
-    orderData?.userId?.contact || orderData?.userId?.phone || '';
-
+ 
   return (
     <div
       className="min-h-screen bg-[#070E1A] text-white font-['Plus_Jakarta_Sans',sans-serif] selection:bg-orange-500 selection:text-black pb-16 sm:pb-20 relative overflow-x-hidden w-full"
@@ -588,7 +595,11 @@ export default function TechnicianTracking() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   <span className="bg-emerald-500 text-slate-950 text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
-                    Order Accepted!
+                {isOrderAcceptedInDb ? (
+                  <>
+                    <span>✓</span>
+                    <span>Accepted</span>
+                  </>):" Order Pending!"}   
                   </span>
                   <span className="text-[11px] sm:text-xs text-white/50 font-mono truncate">
                     Client: <strong className="text-white">{displayCustomerName}</strong>
