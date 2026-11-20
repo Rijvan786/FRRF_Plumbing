@@ -75,6 +75,10 @@ export default function Navbar() {
       navigate('/technician/technician-register');
       return;
     }
+    if(id === 'about'){
+      navigate("/customer/about")
+      return
+    }
     if (id === 'home') {
       if (window.location.pathname === '/customer' || window.location.pathname === '/customer/') {
         window.scrollTo({ top: 0, behavior: 'smooth' });

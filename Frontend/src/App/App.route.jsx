@@ -22,6 +22,7 @@ import AppLayout from "./AppLayout.jsx";
 import Payment from "../features/order/components/Payment.jsx"
 import PaymentSuccess from "../features/order/components/Payment-success.jsx"
 import Verify_Plumber_work from "../features/technician/component/Verify_Plumber_work.jsx";
+import About from "../features/auth/component/About.jsx";
 
 export const router = createBrowserRouter([
   {
@@ -54,6 +55,10 @@ export const router = createBrowserRouter([
       {
         path: "/customer/allServices",
         element: <AllServices />,
+      },
+      {
+        path:"/customer/about",
+        element:<About/>
       },
       {
         path: "/customer/register",

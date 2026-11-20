@@ -374,9 +374,9 @@ export const GetTechnicianNotificationsController = async (req, res) => {
 
 export const VerifyPlumberWorkController=async(req,res)=>{
    try {
-      const {PaymentWorkDetail,OrderId,amount}=req.body
-    
-    
+      const {PaymentWorkDetail,OrderId,totalPayableAmount,extraCharges}=req.body
+        const TotalAmount=totalPayableAmount
+  
    
            const images = await Promise.all(
                req.files.map(async (file) => {
@@ -420,6 +420,7 @@ export const VerifyPlumberWorkController=async(req,res)=>{
       {$set:{status:"Completed",
          PaymentWorkDetail:PaymentWorkDetail,
       verifiedIssueImageUrl:images,
+      "total_Amount.amount":TotalAmount
      }},
      {returnDocument:'after' })
       
@@ -526,7 +527,7 @@ export const GetPaymentDetailController = async (req, res) => {
 // ──────────────────────────────────────────────────────────
 // 1. TECHNICIAN ONLINE & OFFLINE TOGGLE CONTROLLER
 // ──────────────────────────────────────────────────────────
-export const ToggleOnlineStatusController = async (req, res) => {
+export const ToggleOnlineStatusController = async (req, res) => { 
   try {
     const userId = req.user?._id || req.user?.id;
     if (!userId) {

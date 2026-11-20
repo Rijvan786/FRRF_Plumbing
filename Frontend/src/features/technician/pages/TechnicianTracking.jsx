@@ -340,13 +340,9 @@ const [showAcceptPopup,setShowAcceptPopup] = useState(true);
       <div style="font-family:'Space Grotesk',sans-serif; color:#ffffff; padding:6px; min-width:180px; max-width:240px;">
         <div style="display:inline-block; background:#10b981; color:#022c22; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">
          <span className="bg-emerald-500 text-slate-950 text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
-               ${isOrderAcceptedInDb ? `(
-                  <>
-                    <span>✓</span>
-                    <span>Accepted</span>
-                  </>)`: "Order Pending!"  }
+               ${isOrderAcceptedInDb ? `Accepted order`: "Order Pending!"  }
                   
-                  </span>
+          </span>
         </div>
         <div style="font-size:13px; font-weight:800; color:#f8fafc; margin-bottom:2px;">
           ${displayCustomerName}
@@ -460,7 +456,7 @@ const [showAcceptPopup,setShowAcceptPopup] = useState(true);
     emitTechnicianStatus({ OrderId: activeOrderId, status: newStatus });
     if (!isOrderAcceptedInDb && activeOrderId && activeOrderId !== 'LIVE_DEMO_ORDER') {
       try {
-        const techId = reduxUser?._id || reduxUser?.id;
+        const techId =reduxTechnician._id|| reduxUser?._id 
         if (techId) {
           await handleAcceptJob({ OrderId: activeOrderId, technicianId: techId });
           setIsOrderAcceptedInDb(true);
@@ -586,20 +582,18 @@ const [showAcceptPopup,setShowAcceptPopup] = useState(true);
       <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-4 sm:space-y-6 w-full">
         
         {/* Order Accepted Floating Alert Popup Banner */}
-        {showAcceptPopup && (
+        {showAcceptPopup && ( 
           <div className="relative bg-gradient-to-r from-emerald-950/80 via-[#0A1628]/95 to-[#0A1628]/95 border-2 border-emerald-500/50 rounded-2xl p-3.5 sm:p-5 shadow-[0_15px_40px_rgba(16,185,129,0.25)] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 transition-all w-full">
             <div className="flex items-start sm:items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 flex items-center justify-center text-xl sm:text-2xl shrink-0 shadow-[0_0_20px_rgba(16,185,129,0.35)]">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-400/40 border border-emerald-400/40 text-emerald-400 flex items-center justify-center text-xl sm:text-2xl shrink-0 shadow-[0_0_20px_rgba(16,185,129,0.35)]">
                 ✓
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   <span className="bg-emerald-500 text-slate-950 text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
-                {isOrderAcceptedInDb ? (
-                  <>
-                    <span>✓</span>
-                    <span>Accepted</span>
-                  </>):" Order Pending!"}   
+                {isOrderAcceptedInDb ?     
+                  `Accepted Order `
+                :" Order Pending!"}   
                   </span>
                   <span className="text-[11px] sm:text-xs text-white/50 font-mono truncate">
                     Client: <strong className="text-white">{displayCustomerName}</strong>
@@ -872,7 +866,7 @@ const [showAcceptPopup,setShowAcceptPopup] = useState(true);
                     <span className="self-start xs:self-center text-[10px] sm:text-xs font-mono text-emerald-400 font-bold shrink-0">
                       {orderStatus === 'Working' || liveKmDistance <= 0.2 ? 'Arrived' : 'Target'}
                     </span>
-                  </div>
+                  </div>  
                 </div>
               </div>
             </div>

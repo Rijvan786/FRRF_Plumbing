@@ -1,11 +1,13 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTrackSocket, calculateDistanceKm } from '../hook/usetrack.js';
+import { useToast } from '../../auth/component/ToastPopup.jsx';
 
 export default function CustomerTracking() {
   const { OrderId: routeOrderId } = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   // Redux Selectors
   const reduxOrders = useSelector((state) => state.order?.orders || state.order?.item || []);
@@ -217,7 +219,7 @@ console.log(orderData);
   }, [effectiveTechCoords, liveKmDistance, orderStatus, orderData]);
 
   // Invalidate Leaflet map size on screen resize or device orientation change
-  useEffect(() => {
+      useEffect(() => {
     const handleResize = () => {
       if (leafletMapRef.current) {
         leafletMapRef.current.invalidateSize();
@@ -682,14 +684,25 @@ console.log(orderData);
                 )}
 
                 <button
-                  onClick={() =>
-                    alert(
-                      technicianPhone
-                        ? `Initiating direct voice dispatch channel with ${technicianName} (${technicianPhone})...`
-                        : "Plumber dispatch team is currently assigning nearest technician."
-                    )
-                  }
-                  className="w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 border border-cyan-500/30 text-cyan-300 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+                  onClick={() => {
+                    if (!orderData?.technicianId || orderData?.status === 'Pending' || orderData?.status === 'pending' || !technicianPhone) {
+                      showToast({
+                        type: 'info',
+                        title: 'Order Status',
+                        message: 'Your order will be accepted in some time, please wait...',
+                        duration: 4000,
+                      });
+                    } else {
+                      showToast({
+                        type: 'info',
+                        title: 'Connecting Plumber',
+                        message: `Connecting to ${technicianName} (${technicianPhone})...`,
+                        duration: 3500,
+                      });
+                      window.location.href = `tel:${technicianPhone}`;
+                    }
+                  }}
+                  className="w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] shadow-sm"
                 >
                   <span>💬</span>
                   <span>Direct Dispatch Channel</span>

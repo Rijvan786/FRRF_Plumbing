@@ -210,8 +210,7 @@ export default function Verify_Plumber_work() {
       const formData = new FormData();
       formData.append('OrderId', OrderId);
       formData.append('PaymentWorkDetail', workDetail.trim());
-      formData.append('extraAmount', Number(extraCharges || 0));
-      formData.append('totalAmount', totalPayableAmount);
+      formData.append('totalPayableAmount', (totalPayableAmount));
 
       // Append proof images
       workImages.forEach((imgFile) => {
