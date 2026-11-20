@@ -348,7 +348,7 @@ StitchMCP/generate_screen_from_text
           {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {isServicesLoading ? (
-              [1, 2, 3, 4, 5, 6].map((n) => <ServiceCardSkeleton key={n} />)
+              [1, 2, 3, 4, 5, 6, 7].map((n) => <ServiceCardSkeleton key={n} />)
             ) : displayServices.length === 0 ? (
               <div className="col-span-full py-16 text-center text-slate-400 text-sm">
                 No services available at the moment.
