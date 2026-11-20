@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from "../../../App/Navbar.jsx"
+import { useSelector, useDispatch } from 'react-redux';
+import { useOrder } from '../hook/useOrder.jsx';
+import { setSelectedService } from '../state/order.slice.jsx';
 
 
 /* ── Google Fonts ───────────────────────────────────────────── */
@@ -16,75 +19,17 @@ const useGoogleFonts = () => {
   }, []);
 };
 
-/* ── Data ───────────────────────────────────────────────────── */
-const   SERVICES = [
-  {
-    id: 'leakage',
-    title: 'Leakage Repair',
-    subtitle: 'Tap, Pipe Joints, Flush Tank & Concealed Drips',
-    price: 'Starting ₹200',
-    tag: 'Most Booked',
-    tagBg: 'bg-orange-500',
-    icon: '💧',
-    image: '/images/leakage.png',
-    features: ['Tap Leakage Repair — ₹200', 'Pipe Fixing — ₹500–₹5,000', 'Flush Tank/Commode — ₹1,000'],
-  },
-  {
-    id: 'blockage',
-    title: 'Blockage Removal',
-    subtitle: 'Kitchen Sink, Wash Basin, Clogged Toilet & Sewer',
-    price: 'Starting ₹500',
-    tag: '24/7 Service',
-    tagBg: 'bg-cyan-500',
-    icon: '🔧',
-    image: '/images/blockage.png',
-    features: ['Kitchen Sink Blockage — ₹500', 'Wash Basin Blockage — ₹500', 'Toilet/Commode — ₹2,000'],
-  },
-  {
-    id: 'installation',
-    title: 'Installation',
-    subtitle: 'Tank, Tap/Mixer, Geyser, Water Motor & Wash Basin',
-    price: 'Starting ₹200',
-    tag: 'ISO Certified',
-    tagBg: 'bg-emerald-500',
-    icon: '⚙️',
-    image: '/images/installation.png',
-    features: ['Main Tank Fitting — ₹1,000', 'Tap/Mixer — ₹1,000', 'Geyser Install — ₹200', 'Water Pump — ₹300–₹500'],
-  },
-  {
-    id: 'maintenance',
-    title: 'Maintenance & Inspection',
-    subtitle: 'Annual Audit, Tank Cleaning, Jet Spray & Pipe Scan',
-    price: 'Starting ₹500',
-    tag: 'Preventive',
-    tagBg: 'bg-violet-500',
-    icon: '🛡️',
-    image: '/images/maintenance.png',
-    features: ['Water Tank Cleaning — ₹500', 'Health Faucet Repair — ₹200', 'General Inspection — ₹2,000+'],
-  },
-  {
-    id: 'fullsetup',
-    title: 'Full Setup / Renovation',
-    subtitle: 'New Home, Complete Bathroom & Kitchen Plumbing',
-    price: 'As per Work',
-    tag: 'Premium',
-    tagBg: 'bg-amber-500',
-    icon: '🏗️',
-    image: '/images/fullsetup.png',
-    features: ['New Home Plumbing', 'Complete Bathroom Renovation', 'Full Kitchen Setup', 'Old Pipeline Replacement'],
-  },
-  {
-    id: 'inception',
-    title: 'General Inspection',
-    subtitle: 'Complete Plumbing Health Check & Diagnosis',
-    price: 'Min ₹2,000',
-    tag: 'Recommended',
-    tagBg: 'bg-blue-500',
-    icon: '🔍',
-    image: '/images/inspection.png',
-    features: ['Full Pipe Network Check', 'Pressure Testing', 'Digital Health Report'],
-  },
-];
+/* ── Category Styling Helper (for icon and badge color from Redux category) ── */
+const getCategoryStyle = (category = '') => {
+  const cat = String(category || '').toLowerCase().trim();
+  if (cat.includes('leak')) return { tagBg: 'bg-orange-500', icon: '💧' };
+  if (cat.includes('block')) return { tagBg: 'bg-cyan-500', icon: '🔧' };
+  if (cat.includes('install')) return { tagBg: 'bg-emerald-500', icon: '⚙️' };
+  if (cat.includes('inspect')) return { tagBg: 'bg-blue-500', icon: '🔍' };
+  if (cat.includes('full') || cat.includes('setup')) return { tagBg: 'bg-amber-500', icon: '🏗️' };
+  if (cat.includes('maint')) return { tagBg: 'bg-violet-500', icon: '🛡️' };
+  return { tagBg: 'bg-cyan-500', icon: '🛠️' };
+};
 
 const STATS = [
   { value: '10,000+', label: 'Jobs Completed', icon: '🛠️' },
@@ -116,13 +61,7 @@ const REVIEWS = [
   },
 ];
 
-const NAV_LINKS = [
-  ['Home', 'home'],
-  ['Services', 'services'],
-  ['About', 'about'],
-  ['Contact', 'contact'],
-  ['Get Job','job']
-];
+
 
 /* ══════════════════════════════════════════════════════════════
    PASTE YOUR SOCIAL MEDIA LINKS HERE
@@ -194,15 +133,45 @@ const   SOCIAL_LINKS = [
 /* ══════════════════════════════════════════════════════════════
    ROOT COMPONENT
 ══════════════════════════════════════════════════════════════ */
-export default function   Home() {
+export default function Home() {
   useGoogleFonts();
+  
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [visible, setVisible] = useState(false);
+  const { handleGetallService, handleSetSelectedService } = useOrder();
+  const { services, loading: orderLoading } = useSelector((state) => state.order);
+  const [initialLoading, setInitialLoading] = useState(!services || services.length === 0);
 
   useEffect(() => {
+    let isMounted = true;
+    const fetchServices = async () => {
+      try {
+        await handleGetallService();
+      } catch (err) {
+        console.warn('handleGetallService error:', err);
+      } finally {
+        if (isMounted) setInitialLoading(false);
+      }
+    };
+    fetchServices();
+
     const t = setTimeout(() => setVisible(true), 80);
-    return () => clearTimeout(t);
+    return () => {
+      isMounted = false;
+      clearTimeout(t);
+    };
   }, []);
+
+  const isServicesLoading = (initialLoading || orderLoading) && (!services || services.length === 0);
+
+  // Direct Redux services data
+  const displayServices = useMemo(() => {
+    if (!services || !Array.isArray(services)) {
+      return [];
+    }
+    return services;
+  }, [services]);
 
   useEffect(() => {
     const hash = window.location.hash?.replace('#', '').replace('$', '');
@@ -378,9 +347,36 @@ StitchMCP/generate_screen_from_text
 
           {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-            {SERVICES.map(svc => (
-              <ServiceCard key={svc.id} svc={svc} onBook={() => navigate('/customer/booking', { state: { service: svc.id } })} />
-            ))}
+            {isServicesLoading ? (
+              [1, 2, 3, 4, 5, 6].map((n) => <ServiceCardSkeleton key={n} />)
+            ) : displayServices.length === 0 ? (
+              <div className="col-span-full py-16 text-center text-slate-400 text-sm">
+                No services available at the moment.
+              </div>
+            ) : (
+              displayServices.map((svc) => (
+                <ServiceCard
+                  key={svc._id}
+                  svc={svc}
+                  onBook={() => {
+                    if (typeof handleSetSelectedService === 'function') {
+                      handleSetSelectedService(svc);
+                    } else {
+                      dispatch(setSelectedService(svc));
+                    }
+                    navigate('/customer/booking', {
+                      state: {
+                        service: svc._id,
+                        _id: svc._id,
+                        serviceId: svc._id,
+                        category: svc.category,
+                        serviceName: svc.serviceName,
+                      },
+                    });
+                  }}
+                />
+              ))
+            )}
           </div>
 
           <div className="text-center mt-10">
@@ -600,7 +596,7 @@ StitchMCP/generate_screen_from_text
                   <li key={item}>
                     <Link
                       onClick={() => item ==='Join as Plumber'? navigate('/technician/technician-register') :
-                        item ==='Careers'?navigate('/technician/technician-register') : item ==='About Us'? navigate(`${scrollTo('About')}`):null}
+                        item ==='Careers'?navigate('/technician/technician-register') : item ==='About Us'? navigate(`/customer/about`):null}
                       className="bg-transparent border-0 text-white/45 text-sm cursor-pointer p-0 transition-colors duration-200 hover:text-cyan-400"
                     >
                       {item}
@@ -655,10 +651,24 @@ StitchMCP/generate_screen_from_text
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SERVICE CARD — Tailwind-powered
+   SERVICE CARD — Rendered strictly using Redux Service Details
 ══════════════════════════════════════════════════════════════ */
 function ServiceCard({ svc, onBook }) {
   const [hovered, setHovered] = useState(false);
+
+  const style = getCategoryStyle(svc?.category);
+  const imgUrl =
+    svc?.serviceImg?.[0]?.url ||
+    (typeof svc?.serviceImg?.[0] === 'string' ? svc.serviceImg[0] : null) ||
+    '/images/leakage.png';
+
+  const priceAmount =
+    typeof svc?.price === 'object'
+      ? svc.price?.amount
+      : Number(svc?.price) || 0;
+  const currencySymbol =
+    typeof svc?.price === 'object' && svc.price?.currency === 'USD' ? '$' : '₹';
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -672,45 +682,63 @@ function ServiceCard({ svc, onBook }) {
       {/* Image */}
       <div className="relative h-48 sm:h-52 overflow-hidden bg-gradient-to-br from-[#0A1628] to-[#0F2A4A]">
         <img
-          src={svc.image}
-          alt={svc.title}
+          src={imgUrl}
+          alt={svc?.serviceName || 'Plumbing Service'}
           loading="lazy"
           className={`w-full h-full object-cover transition-transform duration-500 ${hovered ? 'scale-[1.07]' : 'scale-100'}`}
-          onError={e => { e.target.style.display = 'none'; }}
+          onError={e => {
+            e.target.onerror = null;
+            e.target.src = '/images/leakage.png';
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#070E1A]/60 via-transparent to-transparent" />
 
-        {/* Tag */}
-        <div className={`absolute top-3 left-3 ${svc.tagBg} rounded-full px-3 py-1 text-[11px] font-['Plus_Jakarta_Sans',sans-serif] font-bold text-white tracking-wide`}>
-          {svc.tag}
-        </div>
-        {/* Icon */}
+        {/* Category Tag from Redux Category */}
+        {svc?.category && (
+          <div className={`absolute top-3 left-3 ${style.tagBg} rounded-full px-3 py-1 text-[11px] font-['Plus_Jakarta_Sans',sans-serif] font-bold text-white tracking-wide shadow-md flex items-center gap-1`}>
+            <span>{style.icon}</span>
+            <span>{svc.category}</span>
+          </div>
+        )}
+
+        {/* Category Icon */}
         <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-lg border border-white/18">
-          {svc.icon}
+          {style.icon}
         </div>
       </div>
 
       {/* Body */}
-      <div className="p-5 sm:p-6 flex flex-col flex-1">
-        <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[17px] text-[#0A1628] mb-1.5">
-          {svc.title}
-        </h3>
-        <p className="text-slate-400 text-xs leading-relaxed mb-4">{svc.subtitle}</p>
+      <div className="p-5 sm:p-6 flex flex-col flex-1 justify-between">
+        <div>
+          <h3 className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-[17px] text-[#0A1628] mb-1.5">
+            {svc?.serviceName}
+          </h3>
+          <p className="text-slate-400 text-xs leading-relaxed mb-4">
+            Category: <span className="text-slate-600 font-semibold">{svc?.category}</span>
+          </p>
 
-        <ul className="space-y-1.5 mb-5 flex-1">
-          {svc.features.slice(0, 3).map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+          {/* Details strictly from Redux Service Object */}
+          <ul className="space-y-1.5 mb-5">
+            <li className="flex items-start gap-2 text-xs text-slate-600">
               <span className="text-emerald-500 font-bold shrink-0 mt-px">✓</span>
-              {f}
+              Estimated Duration: ~{svc?.EstimatedTimeMinutes || 45} mins
             </li>
-          ))}
-        </ul>
+            <li className="flex items-start gap-2 text-xs text-slate-600">
+              <span className="text-emerald-500 font-bold shrink-0 mt-px">✓</span>
+              Inspection &amp; Visit Charge: ₹{svc?.visitCharge || 0}
+            </li>
+            <li className="flex items-start gap-2 text-xs text-slate-600">
+              <span className="text-emerald-500 font-bold shrink-0 mt-px">✓</span>
+              {svc?.isActive ? 'Active & Verified for Rapid Dispatch' : 'Standard Service Request'}
+            </li>
+          </ul>
+        </div>
 
         <div className="flex items-center justify-between pt-4 border-t border-slate-100 gap-2 flex-wrap">
           <div>
             <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-[0.05em] mb-0.5">Price</div>
             <div className="font-['Plus_Jakarta_Sans',sans-serif] font-black text-[17px] text-orange-500">
-              {svc.price}
+              {priceAmount > 0 ? `Starting ${currencySymbol}${priceAmount}` : 'As Per Work'}
             </div>
           </div>
           <Link
@@ -723,6 +751,64 @@ function ServiceCard({ svc, onBook }) {
           >
             Book Now →
           </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SERVICE CARD SKELETON LOADER — Matching Exact Card Proportions
+══════════════════════════════════════════════════════════════ */
+function ServiceCardSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden flex flex-col border border-slate-100 shadow-sm animate-pulse cursor-default">
+      {/* Top Banner Skeleton */}
+      <div className="relative h-48 sm:h-52 bg-gradient-to-br from-slate-200 to-slate-300 overflow-hidden">
+        {/* Shimmer line */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer_1.8s_infinite]" />
+
+        {/* Tag Skeleton */}
+        <div className="absolute top-3 left-3 w-20 h-5 bg-slate-300/80 rounded-full" />
+
+        {/* Icon Circle Skeleton */}
+        <div className="absolute bottom-3 right-3 w-10 h-10 bg-white/40 backdrop-blur-sm rounded-full" />
+      </div>
+
+      {/* Body Skeleton */}
+      <div className="p-5 sm:p-6 flex flex-col flex-1 justify-between">
+        <div>
+          {/* Title Placeholder */}
+          <div className="h-5 bg-slate-200 rounded-md w-3/4 mb-2.5" />
+
+          {/* Subtitle Placeholder */}
+          <div className="h-3.5 bg-slate-100 rounded-md w-full mb-1.5" />
+          <div className="h-3.5 bg-slate-100 rounded-md w-2/3 mb-5" />
+
+          {/* Features Bullets Placeholders */}
+          <div className="space-y-2 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded-full bg-emerald-200/80 shrink-0" />
+              <div className="h-3 w-4/5 bg-slate-100 rounded" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded-full bg-emerald-200/80 shrink-0" />
+              <div className="h-3 w-3/4 bg-slate-100 rounded" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded-full bg-emerald-200/80 shrink-0" />
+              <div className="h-3 w-2/3 bg-slate-100 rounded" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Price & CTA Button Placeholders */}
+        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          <div>
+            <div className="h-2.5 w-10 bg-slate-200 rounded mb-1.5" />
+            <div className="h-5 w-24 bg-orange-200/90 rounded-md" />
+          </div>
+          <div className="h-9 w-24 bg-slate-200 rounded-xl" />
         </div>
       </div>
     </div>

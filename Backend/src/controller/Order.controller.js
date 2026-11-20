@@ -236,7 +236,7 @@ export const CreateOrderPaymentController = async (req, res) => {
     const workDetails = accordingToWork || "General plumbing repair & maintenance";
     const paymentMode = PaymentType || "online";
     const curr = currency || "INR";
-    const totalAmountNum = Number(amount) || 500; 
+    const  totalAmountNum = Number(amount) || 500; 
 
     let razorpayOrder = null;
     const order=await OrderModel.findById(OrderId)

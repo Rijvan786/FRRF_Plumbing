@@ -374,7 +374,7 @@ export const GetTechnicianNotificationsController = async (req, res) => {
 
 export const VerifyPlumberWorkController=async(req,res)=>{
    try {
-      const {PaymentWorkDetail,OrderId,totalPayableAmount,extraCharges}=req.body
+      const {PaymentWorkDetail,OrderId,totalPayableAmount}=req.body
         const TotalAmount=totalPayableAmount
   
    
@@ -416,10 +416,10 @@ export const VerifyPlumberWorkController=async(req,res)=>{
       ;
     
     
-      const updatedOrder=await OrderModel.findByIdAndUpdate(OrderId,
+const updatedOrder=await OrderModel.findByIdAndUpdate(OrderId,
       {$set:{status:"Completed",
          PaymentWorkDetail:PaymentWorkDetail,
-      verifiedIssueImageUrl:images,
+       verifiedIssueImageUrl:images,
       "total_Amount.amount":TotalAmount
      }},
      {returnDocument:'after' })

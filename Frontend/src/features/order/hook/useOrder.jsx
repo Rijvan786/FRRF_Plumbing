@@ -125,7 +125,7 @@ export function useOrder() {
     }
   };
 
-  const handleSetSelectedService = (service) => {
+  const   handleSetSelectedService = (service) => {
     dispatch(setSelectedService(service));
   };
 

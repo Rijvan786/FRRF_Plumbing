@@ -77,7 +77,7 @@ export default function Navbar() {
     }
     if(id === 'about'){
       navigate("/customer/about")
-      return
+      return;
     }
     if (id === 'home') {
       if (window.location.pathname === '/customer' || window.location.pathname === '/customer/') {

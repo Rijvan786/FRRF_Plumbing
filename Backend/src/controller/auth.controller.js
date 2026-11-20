@@ -990,7 +990,7 @@ export async function GoogleCallback(req, res) {
     });
 
     // ── Target redirect URL: https://frpf-plumbing.onrender.com/ ──
-    const redirectUrl = "https://frpf-plumbing.onrender.com/";
+    const redirectUrl = Config.NODE_ENV==="production"?`https://frpf-plumbing.onrender.com/`:"http://localhost:5173";
 
     // ── Generate & send modern email notification ──
     const emailHtml = generateGoogleAuthEmail({
